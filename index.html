@@ -2,9 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Updated viewport to prevent zooming on mobile -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Pointless Clicker</title>
   <style>
+    html, body {
+      touch-action: manipulation; /* Prevent double-tap zoom */
+    }
+
     body {
       font-family: sans-serif;
       background: #111;
@@ -33,6 +38,7 @@
       padding: 10px 25px;
       cursor: pointer;
       transition: transform 0.1s, background 0.2s;
+      -webkit-tap-highlight-color: transparent; /* Remove grey highlight on mobile */
     }
 
     button:active {
@@ -47,7 +53,7 @@
       background: #2196f3;
     }
 
-    /* --- Toast Achievement Styles --- */
+    /* Toast Achievement Styles */
     .toast-container {
       position: fixed;
       top: 20px;
@@ -85,7 +91,7 @@
       margin-bottom: 3px;
     }
 
-    /* --- Achievements Tab --- */
+    /* Achievements Tab */
     #achievements-tab {
       position: fixed;
       top: 50%;
@@ -166,6 +172,14 @@
   </div>
 
   <script>
+    // Prevent double-tap zoom on mobile
+    document.addEventListener('touchstart', function (e) {
+      if (e.target.tagName === 'BUTTON') {
+        e.preventDefault(); // Prevent zoom
+        e.target.click();   // Still trigger click
+      }
+    }, { passive: false });
+
     let count = parseInt(localStorage.getItem('count')) || 0;
     const countEl = document.getElementById('count');
     const clickBtn = document.getElementById('clicker');
@@ -177,7 +191,7 @@
     const achievementsList = document.getElementById('achievements-list');
 
     const achievements = {
-        5: "You've clicked... once? Twice? Eh..",
+      5: "You've clicked... once? Twice? Eh..",
       10: "You’ve clicked 10 times. Mildly impressive.",
       15: "Getting the hang of it I see.",
       25: "Is your finger okay?",
@@ -217,23 +231,20 @@
     const unlocked = JSON.parse(localStorage.getItem('unlockedAchievements')) || [];
 
     function updateAchievementsTab() {
-  achievementsList.innerHTML = "";
+      achievementsList.innerHTML = "";
+      for (const [num, desc] of Object.entries(achievements)) {
+        const div = document.createElement('div');
+        div.classList.add('achievement');
 
-  for (const [num, desc] of Object.entries(achievements)) {
-    const div = document.createElement('div');
-    div.classList.add('achievement');
+        if (unlocked.includes(num)) {
+          div.innerHTML = `<div class="achievement-title">Clicks: ${num}</div><div>${desc}</div>`;
+        } else {
+          div.innerHTML = `<div class="achievement-title">???</div><div>???</div>`;
+        }
 
-    if (unlocked.includes(num)) {
-      // Unlocked achievement shows normally
-      div.innerHTML = `<div class="achievement-title">Clicks: ${num}</div><div>${desc}</div>`;
-    } else {
-      // Locked achievement shows as mystery
-      div.innerHTML = `<div class="achievement-title">???</div><div>???</div>`;
+        achievementsList.appendChild(div);
+      }
     }
-
-    achievementsList.appendChild(div);
-  }
-}
 
     function showToast(title, message) {
       const toast = document.createElement('div');
