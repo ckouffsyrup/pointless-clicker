@@ -229,6 +229,20 @@
     };
 
     const unlocked = JSON.parse(localStorage.getItem('unlockedAchievements')) || [];
+    
+    window.addEventListener("load", () => {
+    // Auto-unlock any achievements you already qualify for
+      for (const num of Object.keys(achievements)) {
+        if (count >= parseInt(num) && !unlocked.includes(num)) {
+          unlocked.push(num);
+          showToast("Achievement Get!", achievements[num]);
+        }
+      }
+      localStorage.setItem("unlockedAchievements", JSON.stringify(unlocked));
+      updateAchievementsTab();
+    });
+    
+    updateAchievementsTab();
 
     function updateAchievementsTab() {
       achievementsList.innerHTML = "";
