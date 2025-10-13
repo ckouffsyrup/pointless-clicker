@@ -242,7 +242,7 @@
       for (const num of Object.keys(achievements)) {
         if (count >= parseInt(num) && !unlocked.includes(num)) {
           unlocked.push(num);
-          showToast("Achievement Get!", achievements[num]);
+          showToast("Achievement Earned!", achievements[num]);
         }
       }
       localStorage.setItem("unlockedAchievements", JSON.stringify(unlocked));
@@ -290,7 +290,7 @@
       if (achievements[count] && !unlocked.includes(String(count))) {
         unlocked.push(String(count));
         localStorage.setItem('unlockedAchievements', JSON.stringify(unlocked));
-        showToast("Achievement Get!", achievements[count]);
+        showToast("Achievement Earned!", achievements[count]);
         updateAchievementsTab();
       }
     });
