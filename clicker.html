@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pointless Clicker</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #111;
+      color: #eee;
+      text-align: center;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 15px;
+      overflow: hidden;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      margin: 0;
+    }
+
+    button {
+      background: #4caf50;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 1.1rem;
+      padding: 10px 25px;
+      cursor: pointer;
+      transition: transform 0.1s, background 0.2s;
+    }
+
+    button:active {
+      transform: scale(0.95);
+    }
+
+    .reset {
+      background: #e53935;
+    }
+
+    #achievements-btn {
+      background: #2196f3;
+    }
+
+    /* --- Toast Achievement Styles --- */
+    .toast-container {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 10px;
+      z-index: 9999;
+    }
+
+    .toast {
+      background: rgba(30, 30, 30, 0.95);
+      color: #fff;
+      border-left: 5px solid #4caf50;
+      padding: 10px 15px;
+      border-radius: 8px;
+      font-size: 1rem;
+      opacity: 0;
+      transform: translateX(150%);
+      transition: all 0.4s ease;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+      min-width: 220px;
+      text-align: left;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(0);
+    }
+
+    .toast-title {
+      font-weight: bold;
+      color: #4caf50;
+      margin-bottom: 3px;
+    }
+
+    /* --- Achievements Tab --- */
+    #achievements-tab {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.9);
+      background: #222;
+      border: 2px solid #4caf50;
+      border-radius: 12px;
+      padding: 20px;
+      width: 300px;
+      max-height: 70vh;
+      overflow-y: auto;
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+      text-align: left;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+      z-index: 1000;
+    }
+
+    #achievements-tab.show {
+      display: flex;
+      animation: popIn 0.3s ease forwards;
+    }
+
+    @keyframes popIn {
+      from {
+        transform: translate(-50%, -50%) scale(0.8);
+        opacity: 0;
+      }
+      to {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 1;
+      }
+    }
+
+    .achievement {
+      background: #2e2e2e;
+      border-left: 5px solid #4caf50;
+      padding: 8px 12px;
+      border-radius: 8px;
+      color: #fff;
+      transition: all 0.3s;
+    }
+
+    .achievement-title {
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+
+    .close-btn {
+      align-self: flex-end;
+      background: #e53935;
+      font-size: 0.9rem;
+      padding: 5px 10px;
+      border-radius: 6px;
+    }
+
+    .no-achievements {
+      color: #999;
+      text-align: center;
+      font-style: italic;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1 id="count">0</h1>
+  <button id="clicker">Click Me</button>
+  <button id="achievements-btn">Achievements</button>
+  <button id="reset" class="reset">Reset</button>
+
+  <div class="toast-container" id="toast-container"></div>
+  <div id="achievements-tab">
+    <button class="close-btn" id="close-achievements">Close</button>
+    <h2>Achievements</h2>
+    <div id="achievements-list"></div>
+  </div>
+
+  <script>
+    let count = parseInt(localStorage.getItem('count')) || 0;
+    const countEl = document.getElementById('count');
+    const clickBtn = document.getElementById('clicker');
+    const resetBtn = document.getElementById('reset');
+    const achievementsBtn = document.getElementById('achievements-btn');
+    const toastContainer = document.getElementById('toast-container');
+    const achievementsTab = document.getElementById('achievements-tab');
+    const closeAchievements = document.getElementById('close-achievements');
+    const achievementsList = document.getElementById('achievements-list');
+
+    const achievements = {
+        5: "You've clicked... once? Twice? Eh..",
+      10: "You’ve clicked 10 times. Mildly impressive.",
+      15: "Getting the hang of it I see.",
+      25: "Is your finger okay?",
+      42: "42 clicks — the answer to everything.",
+      69: "Nice",
+      100: "You clearly have nothing better to do.",
+      200: "Really...",
+      300: "You might have a mild obsession.",
+      420: "Blaze it.",
+      500: "Your dedication is both admirable and concerning.",
+      750: "Stop. Just... stop.",
+      900: "Okay, this is a little much..",
+      1000: "You have reached enlightenment. Stop now. Or don’t.",
+      1200: "Why are you still here?",
+      1234: "Sequential! Wow.",
+      1500: "You clearly have no social life.. oof",
+      2000: "Are you okay?",
+      2500: "Your mouse is crying.",
+      3000: "Do you not have a life?",
+      4000: "Someone call a mental institure.. please",
+      5000: "You might need help.",
+      5500: "Yeah, you need help..",
+      6000: "Please bro, why are you still here...",
+      6500: "Your mouse deserves a break.. jeez",
+      7000: "Go to bed or something.",
+      8000: "Why.",
+      9000: "I'm telling your mom..",
+      10000: "Touch grass, please.",
+      10001: "Secret Achievement unlocked. You good?",
+      12000: "The universe is judging you...",
+      15000: "You may have broken reality.",
+      20000: "Clicking is life now, isn't it?",
+      25000: "You're officially a legend... or maybe insane. Idk yet...",
+      50000: "Again, just why?"
+    };
+
+    const unlocked = JSON.parse(localStorage.getItem('unlockedAchievements')) || [];
+
+    function updateAchievementsTab() {
+  achievementsList.innerHTML = "";
+
+  for (const [num, desc] of Object.entries(achievements)) {
+    const div = document.createElement('div');
+    div.classList.add('achievement');
+
+    if (unlocked.includes(num)) {
+      // Unlocked achievement shows normally
+      div.innerHTML = `<div class="achievement-title">Clicks: ${num}</div><div>${desc}</div>`;
+    } else {
+      // Locked achievement shows as mystery
+      div.innerHTML = `<div class="achievement-title">???</div><div>???</div>`;
+    }
+
+    achievementsList.appendChild(div);
+  }
+}
+
+    function showToast(title, message) {
+      const toast = document.createElement('div');
+      toast.classList.add('toast');
+      toast.innerHTML = `<div class="toast-title">${title}</div><div>${message}</div>`;
+      toastContainer.appendChild(toast);
+      setTimeout(() => toast.classList.add('show'), 100);
+      setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 400);
+      }, 4000);
+    }
+
+    countEl.textContent = count;
+    updateAchievementsTab();
+
+    clickBtn.addEventListener('click', () => {
+      count++;
+      countEl.textContent = count;
+      localStorage.setItem('count', count);
+
+      if (achievements[count] && !unlocked.includes(String(count))) {
+        unlocked.push(String(count));
+        localStorage.setItem('unlockedAchievements', JSON.stringify(unlocked));
+        showToast("Achievement Get!", achievements[count]);
+        updateAchievementsTab();
+      }
+    });
+
+    achievementsBtn.addEventListener('click', () => {
+      achievementsTab.classList.toggle('show');
+    });
+
+    closeAchievements.addEventListener('click', () => {
+      achievementsTab.classList.remove('show');
+    });
+
+    resetBtn.addEventListener('click', () => {
+      if (confirm("Are you sure you want to erase all your progress?")) {
+        localStorage.clear();
+        count = 0;
+        countEl.textContent = count;
+        unlocked.length = 0;
+        updateAchievementsTab();
+      }
+    });
+  </script>
+</body>
+</html>
