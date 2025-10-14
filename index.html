@@ -1,32 +1,35 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <!-- Updated viewport to prevent zooming on mobile -->
+  <meta charset="utf-8" />
+  <!-- Prevent mobile zoom on double-tap -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Pointless Clicker</title>
+  <title>Pointless Clicker (Prestige + Secrets)</title>
   <style>
-    html, body {
-      touch-action: manipulation; /* Prevent double-tap zoom */
-    }
-
+    html, body { touch-action: manipulation; } /* helps on mobile */
     body {
       font-family: sans-serif;
       background: #111;
       color: #eee;
       text-align: center;
-      height: 100vh;
+      min-height: 100vh;
       display: flex;
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      gap: 15px;
-      overflow: hidden;
+      gap: 12px;
+      margin: 0;
+      padding: 20px;
     }
 
-    h1 {
-      font-size: 2.5rem;
-      margin: 0;
+    header { display:flex; gap:8px; align-items:center; justify-content:center; width:100%; max-width:420px; }
+    h1 { font-size: 2.2rem; margin: 8px 0; }
+
+    .controls-vertical {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: center;
     }
 
     button {
@@ -34,288 +37,445 @@
       color: white;
       border: none;
       border-radius: 10px;
-      font-size: 1.1rem;
-      padding: 10px 25px;
+      font-size: 1rem;
+      padding: 8px 16px;
       cursor: pointer;
-      transition: transform 0.1s, background 0.2s;
-      -webkit-tap-highlight-color: transparent; /* Remove grey highlight on mobile */
+      transition: transform .08s, background .15s;
+      -webkit-tap-highlight-color: transparent;
     }
+    button:active { transform: scale(.96); }
+    .muted { background:#666; }
+    .blue { background:#2196f3; color:#fff; font-weight:600; }
+    .red { background:#e53935; }
+    .gold { background: #f9a825; color:#222; font-weight:700; }
+    .prestige-ready { box-shadow: 0 6px 18px rgba(255,200,0,0.2); }
 
-    button:active {
-      transform: scale(0.95);
-    }
+    #count { font-size: 3rem; margin:6px 0; }
 
-    .reset {
-      background: #e53935;
-    }
-
-    #achievements-btn {
-      background: #2196f3;
-    }
-
-    /* Toast Achievement Styles */
+    /* toast */
     .toast-container {
       position: fixed;
-      top: 20px;
-      right: 20px;
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: 10px;
-      z-index: 9999;
+      top: 18px;
+      right: 18px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      z-index:2000;
     }
-
     .toast {
-      background: rgba(30, 30, 30, 0.95);
-      color: #fff;
-      border-left: 5px solid #4caf50;
-      padding: 10px 15px;
-      border-radius: 8px;
-      font-size: 1rem;
-      opacity: 0;
-      transform: translateX(150%);
-      transition: all 0.4s ease;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+      background: rgba(28,28,28,0.96);
+      color:#fff;
+      border-left:5px solid #4caf50;
+      padding:10px 14px;
+      border-radius:8px;
       min-width: 220px;
-      text-align: left;
+      transform: translateX(150%);
+      opacity:0;
+      transition: all .36s ease;
+      box-shadow: 0 6px 18px rgba(0,0,0,.5);
+      text-align:left;
     }
+    .toast.show { transform: translateX(0); opacity:1; }
+    .toast-title { font-weight:700; color:#4caf50; margin-bottom:4px; }
 
-    .toast.show {
-      opacity: 1;
-      transform: translateX(0);
-    }
-
-    .toast-title {
-      font-weight: bold;
-      color: #4caf50;
-      margin-bottom: 3px;
-    }
-
-    /* Achievements Tab */
-    #achievements-tab {
+    /* achievements / stats modal */
+    .panel {
       position: fixed;
-      top: 50%;
       left: 50%;
-      transform: translate(-50%, -50%) scale(0.9);
-      background: #222;
-      border: 2px solid #4caf50;
-      border-radius: 12px;
-      padding: 20px;
-      width: 300px;
-      max-height: 70vh;
-      overflow-y: auto;
-      display: none;
-      flex-direction: column;
-      gap: 10px;
-      text-align: left;
-      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
-      z-index: 1000;
+      top: 50%;
+      transform: translate(-50%,-50%) scale(.98);
+      width: 92%;
+      max-width: 420px;
+      max-height: 78vh;
+      overflow:auto;
+      background:#1f1f1f;
+      border:2px solid #333;
+      border-radius:12px;
+      padding:14px;
+      display:none;
+      z-index:1500;
+      box-shadow: 0 16px 40px rgba(0,0,0,.6);
     }
+    .panel.show { display:block; animation: pop .22s ease both; }
+    @keyframes pop { from { transform: translate(-50%,-50%) scale(.94); opacity:0 } to { transform: translate(-50%,-50%) scale(1); opacity:1 } }
 
-    #achievements-tab.show {
-      display: flex;
-      animation: popIn 0.3s ease forwards;
-    }
+    .panel h2 { margin:6px 0 8px 0; color:#4caf50; text-align:center; }
+    .panel .close { margin-left:auto; background:#e53935; padding:6px 10px; border-radius:8px; display:block; }
 
-    @keyframes popIn {
-      from {
-        transform: translate(-50%, -50%) scale(0.8);
-        opacity: 0;
-      }
-      to {
-        transform: translate(-50%, -50%) scale(1);
-        opacity: 1;
-      }
-    }
+    .achievement { background:#292929; border-left:5px solid #555; padding:8px 10px; border-radius:8px; color:#ddd; margin:8px 0; }
+    .achievement.unlocked { border-left-color:#4caf50; color:#fff; background:#2a2a2a; box-shadow: inset 0 0 18px rgba(0,0,0,.2); }
+    .achievement.secret.unlocked { border-left-color: gold; box-shadow: 0 0 12px rgba(255,200,0,.12); color: #fff; background: #2b2206; }
+    .achievement .title { font-weight:700; margin-bottom:4px; }
 
-    .achievement {
-      background: #2e2e2e;
-      border-left: 5px solid #4caf50;
-      padding: 8px 12px;
-      border-radius: 8px;
-      color: #fff;
-      transition: all 0.3s;
-    }
+    .no-items { color:#999; font-style:italic; text-align:center; margin:12px 0; }
 
-    .achievement-title {
-      font-weight: bold;
-      margin-bottom: 4px;
-    }
+    .stats-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-top:8px; }
+    .stat { background:#222; padding:10px; border-radius:8px; text-align:center; }
 
-    .close-btn {
-      align-self: flex-end;
-      background: #e53935;
-      font-size: 0.9rem;
-      padding: 5px 10px;
-      border-radius: 6px;
-    }
-
-    .no-achievements {
-      color: #999;
-      text-align: center;
-      font-style: italic;
-      margin-top: 10px;
-    }
+    footer { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); color:#888; font-size:12px; }
   </style>
 </head>
 <body>
-  <h1 id="count">0</h1>
-  <button id="clicker">Click Me</button>
-  <button id="achievements-btn">Achievements</button>
-  <button id="reset" class="reset">Reset</button>
+  <header>
+  </header>
 
-  <div class="toast-container" id="toast-container"></div>
-  <div id="achievements-tab">
-    <button class="close-btn" id="close-achievements">Close</button>
+  <main>
+    <h1 id="count">0</h1>
+    <div class="controls-vertical">
+      <button id="clicker" style="font-size:1.5rem;padding:14px 28px;">Click Me</button>
+      <button id="achBtn" class="blue">Achievements</button>
+      <button id="statsBtn" class="muted">Stats</button>
+      <button id="prestigeBtn" class="gold" style="display:none;">Prestige (10,000)</button>
+      <button id="resetBtn" class="red">Reset</button>
+    </div>
+  </main>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Achievements panel -->
+  <div id="achPanel" class="panel" aria-hidden="true">
+    <button id="closeAch" class="close">Close</button>
     <h2>Achievements</h2>
-    <div id="achievements-list"></div>
+    <div id="achList"></div>
   </div>
 
-  <script>
-    // Prevent double-tap zoom on mobile
-    document.addEventListener('touchstart', function (e) {
-      if (e.target.tagName === 'BUTTON') {
-        e.preventDefault(); // Prevent zoom
-        e.target.click();   // Still trigger click
-      }
-    }, { passive: false });
+  <!-- Stats panel -->
+  <div id="statsPanel" class="panel" aria-hidden="true">
+    <button id="closeStats" class="close">Close</button>
+    <h2>Stats</h2>
+    <div class="stats-grid">
+      <div class="stat"><div style="font-size:18px;font-weight:700" id="statTotal">0</div><div>Total Clicks</div></div>
+      <div class="stat"><div style="font-size:18px;font-weight:700" id="statCurrent">1.00x</div><div>Current Multiplier</div></div>
+      <div class="stat"><div style="font-size:18px;font-weight:700" id="statPrestige">0</div><div>Prestige Count</div></div>
+      <div class="stat"><div style="font-size:18px;font-weight:700" id="statUnlocked">0</div><div>Achievements</div></div>
+    </div>
+    <div style="margin-top:10px;">
+      <div style="text-align:center;color:#bbb">Playtime</div>
+      <div id="statPlaytime" style="text-align:center;color:#ddd;margin-top:6px">0s</div>
+    </div>
+  </div>
 
-    let count = parseInt(localStorage.getItem('count')) || 0;
-    const countEl = document.getElementById('count');
-    const clickBtn = document.getElementById('clicker');
-    const resetBtn = document.getElementById('reset');
-    const achievementsBtn = document.getElementById('achievements-btn');
-    const toastContainer = document.getElementById('toast-container');
-    const achievementsTab = document.getElementById('achievements-tab');
-    const closeAchievements = document.getElementById('close-achievements');
-    const achievementsList = document.getElementById('achievements-list');
+  <footer>Pointless Clicker — built for boredom</footer>
 
-    const achievements = {
-      1: "Ah yes, the first click. So the journey begins.",
-      5: "You've clicked... once? Twice? Eh..",
-      10: "You’ve clicked 10 times. Mildly impressive.",
-      15: "Getting the hang of it I see.",
-      25: "Is your finger okay?",
-      42: "42 clicks — the answer to everything.",
-      69: "Nice",
-      100: "You clearly have nothing better to do.",
-      200: "Really...",
-      300: "You might have a mild obsession.",
-      333: "Triple Threat, oh no.",
-      420: "Blaze it.",
-      500: "Your dedication is both admirable and concerning.",
-      750: "Stop. Just... stop.",
-      800: "Almost to 1000, proud of yourself?",
-      900: "Okay, this is a little much..",
-      1000: "You have reached enlightenment. Stop now. Or don’t.",
-      1200: "Why are you still here?",
-      1234: "Sequential! Wow.",
-      1500: "You clearly have no social life.. oof",
-      2000: "Are you okay?",
-      2500: "Your mouse/screen is crying.",
-      3000: "Do you not have a life?",
-      4000: "Someone call a mental institute.. please",
-      4500: "You could've baked a cake by now you know.",
-      5000: "You might need help.",
-      5500: "Yeah, you need help..",
-      6000: "Please bro, why are you still here...",
-      6500: "Your mouse/finger deserves a break.. jeez",
-      7000: "Go to bed or something.",
-      8000: "Why.",
-      8500: "Achievement hunting like a pro.",
-      9000: "I'm telling your mom..",
-      9500: "You really have no life huh?",
-      10000: "Touch grass, please.",
-      10001: "You good?",
-      12000: "The universe is judging you...",
-      15000: "You may be retarded.",
-      20000: "Clicking is life now, isn't it?",
-      25000: "You're officially a legend... or maybe insane. Idk yet...",
-      30000: "You're breaking records no one tracks..",
-      35000: "Do you really have nothing to do rn?",
-      40000: "I get it bro. You can calm down now...",
-      45000: "Fuck my eyes - Colton", //he wanted an achievement
-      50000: "Again, just why?",
-      55000: "So uh, when you stopping?"
-    };
+<script>
+/* ====== DATA & STORAGE ====== */
+let count = parseFloat(localStorage.getItem('count')) || 0;           // current (can be float)
+let totalClicks = parseFloat(localStorage.getItem('totalClicks')) || 0; // cumulative clicks across prestiges
+let unlocked = JSON.parse(localStorage.getItem('unlockedAchievements')) || []; // array of keys (strings)
+let prestigeCount = parseInt(localStorage.getItem('prestigeCount')) || 0;
+let firstSeen = parseInt(localStorage.getItem('firstSeen')) || Date.now();
+let savedPlaytime = parseInt(localStorage.getItem('savedPlaytime')) || 0; // ms
+let sessionStart = Date.now();
 
-    const unlocked = JSON.parse(localStorage.getItem('unlockedAchievements')) || [];
-    
-    window.addEventListener("load", () => {
-    // Auto-unlock any achievements you already qualify for
-      for (const num of Object.keys(achievements)) {
-        if (count >= parseInt(num) && !unlocked.includes(num)) {
-          unlocked.push(num);
-          showToast("Achievement Earned!", achievements[num]);
-        }
-      }
-      localStorage.setItem("unlockedAchievements", JSON.stringify(unlocked));
-      updateAchievementsTab();
-    });
-    
-    updateAchievementsTab();
+/* UI elements */
+const countEl = document.getElementById('count');
+const clickBtn = document.getElementById('clicker');
+const achBtn = document.getElementById('achBtn');
+const statsBtn = document.getElementById('statsBtn');
+const resetBtn = document.getElementById('resetBtn');
+const prestigeBtn = document.getElementById('prestigeBtn');
 
-    function updateAchievementsTab() {
-      achievementsList.innerHTML = "";
-      for (const [num, desc] of Object.entries(achievements)) {
-        const div = document.createElement('div');
-        div.classList.add('achievement');
+const toastContainer = document.getElementById('toastContainer');
+const achPanel = document.getElementById('achPanel');
+const achList = document.getElementById('achList');
+const closeAch = document.getElementById('closeAch');
 
-        if (unlocked.includes(num)) {
-          div.innerHTML = `<div class="achievement-title">Clicks: ${num}</div><div>${desc}</div>`;
-        } else {
-          div.innerHTML = `<div class="achievement-title">???</div><div>???</div>`;
-        }
+const statsPanel = document.getElementById('statsPanel');
+const closeStats = document.getElementById('closeStats');
+const statTotal = document.getElementById('statTotal');
+const statCurrent = document.getElementById('statCurrent');
+const statPrestige = document.getElementById('statPrestige');
+const statUnlocked = document.getElementById('statUnlocked');
+const statPlaytime = document.getElementById('statPlaytime');
 
-        achievementsList.appendChild(div);
-      }
+/* ====== ACHIEVEMENTS (regular and secret combined) ======
+   format: key: { text: "...", secret: true|false }
+   secret: true means hidden until unlocked and displayed in gold when unlocked.
+*/
+const achievements = {
+  "1": { text: "Ah yes, the first click. So the journey begins.", secret:false },
+  "5": { text: "You've clicked... once? Twice? Eh..", secret:false },
+  "10": { text: "You’ve clicked 10 times. Mildly impressive.", secret:false },
+  "15": { text: "Getting the hang of it I see.", secret:false },
+  "25": { text: "Is your finger okay?", secret:false },
+  "42": { text: "42 clicks — the answer to everything.", secret:false },
+  "69": { text: "Nice", secret:false },
+  "100": { text: "You clearly have nothing better to do.", secret:false },
+  "200": { text: "Really...", secret:false },
+  "250": { text: "You’re kinda scary with this speed.", secret:false },
+  "300": { text: "You might have a mild obsession.", secret:false },
+  "333": { text: "Triple Threat, oh no.", secret:false },
+  "420": { text: "Blaze it.", secret:false },
+  "500": { text: "Your dedication is both admirable and concerning.", secret:false },
+  "666": { text: "Uh oh… something feels evil.", secret:false },
+  "6969": { text: "Nice... again.", secret:true },           // secret example
+  "750": { text: "Stop. Just... stop.", secret:false },
+  "800": { text: "Almost to 1000, proud of yourself?", secret:false },
+  "900": { text: "Okay, this is a little much..", secret:false },
+  "1000": { text: "You have reached enlightenment. Stop now. Or don’t.", secret:false },
+  "1111": { text: "You like patterns, huh?", secret:false },
+  "1200": { text: "Why are you still here?", secret:false },
+  "1234": { text: "Sequential! Wow.", secret:false },
+  "1337": { text: "Leet clicker.", secret:false },
+  "1500": { text: "You clearly have no social life.. oof", secret:false },
+  "2000": { text: "Are you okay?", secret:false },
+  "2500": { text: "Your mouse/screen is crying.", secret:false },
+  "3000": { text: "Do you not have a life?", secret:false },
+  "3500": { text: "Your mouse deserves hazard pay.", secret:false },
+  "4000": { text: "Someone call a mental institute.. please", secret:false },
+  "4040": { text: "Achievement not found.", secret:false },
+  "4500": { text: "You could've baked a cake by now you know.", secret:false },
+  "5000": { text: "You might need help.", secret:false },
+  "5500": { text: "Yeah, you need help..", secret:false },
+  "6000": { text: "Please bro, why are you still here...", secret:false },
+  "6500": { text: "Your mouse/finger deserves a break.. jeez", secret:false },
+  "7000": { text: "Go to bed or something.", secret:false },
+  "7500": { text: "Okay, you’ve proven your point.", secret:false },
+  "8000": { text: "Why.", secret:false },
+  "8500": { text: "Achievement hunting like a pro.", secret:false },
+  "9000": { text: "I'm telling your mom..", secret:false },
+  "9500": { text: "You really have no life huh?", secret:false },
+  "10000": { text: "Touch grass, please.", secret:false },
+  "10001": { text: "Secret Achievement unlocked. You good?", secret:true },
+  "11000": { text: "Double digits in the thousands? Wow.", secret:false },
+  "12000": { text: "The universe is judging you...", secret:false },
+  "12345": { text: "Counted sequentially, didn’t you?", secret:true },
+  "15000": { text: "You may have broken reality.", secret:false },
+  "20000": { text: "Clicking is life now, isn't it?", secret:false },
+  "25000": { text: "You're officially a legend... or maybe insane. Idk yet...", secret:false },
+  "30000": { text: "You're breaking records no one tracks..", secret:false },
+  "35000": { text: "Do you really have nothing to do rn?", secret:false },
+  "40000": { text: "I get it bro. You can calm down now...", secret:false },
+  "45000": { text: "Fuck my eyes - Colton", secret:false },
+  "50000": { text: "Again, just why?", secret:false },
+  "55000": { text: "So uh, when you stopping?", secret:false },
+  "69696": { text: "Ultimate nice achieved.", secret:true },
+  "99999": { text: "How did you even get here?", secret:true }
+};
+
+/* ====== Multiplier (scaling prestige formula) ======
+   formula: multiplier = 1 + Math.pow(prestigeCount * 0.1, 1.3)
+   (prestigeCount 0 -> 1.0)
+*/
+function getMultiplier() {
+  if (prestigeCount <= 0) return 1;
+  return 1 + Math.pow(prestigeCount * 0.1, 1.3);
+}
+
+/* ====== UTIL: format ms to nice string ====== */
+function fmtTime(ms) {
+  const s = Math.floor(ms / 1000);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (h) return `${h}h ${m}m ${sec}s`;
+  if (m) return `${m}m ${sec}s`;
+  return `${sec}s`;
+}
+
+/* ====== Prestige ====== */
+function getPrestigeCost() {
+  return 10000 + prestigeCount * 10000; // base 10k + 10k per existing prestige
+}
+
+/* ====== UI: toast (can be gold for secret) ====== */
+function showToast(title, message, secret=false) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  if (secret) t.style.borderLeft = '5px solid gold';
+  t.innerHTML = `<div class="toast-title" style="color:${secret ? 'gold' : '#4caf50'}">${title}</div><div>${message}</div>`;
+  toastContainer.appendChild(t);
+  // animate in
+  requestAnimationFrame(()=> t.classList.add('show'));
+  setTimeout(()=> {
+    t.classList.remove('show');
+    setTimeout(()=> t.remove(), 400);
+  }, 3800);
+}
+
+/* ====== Update Achievements panel (only show unlocked and non-secret locked as ???) ====== */
+function updateAchievementsPanel() {
+  achList.innerHTML = '';
+  let shownAny = false;
+  // Regular/secret both in same object; iterate sorted by numeric key
+  const keys = Object.keys(achievements).map(k=>parseInt(k)).sort((a,b)=>a-b);
+  for (const k of keys) {
+    const key = String(k);
+    const info = achievements[key];
+    // if secret and not unlocked -> skip (don't show placeholder)
+    if (info.secret && !unlocked.includes(key)) continue;
+
+    const div = document.createElement('div');
+    div.className = 'achievement';
+    if (info.secret && unlocked.includes(key)) div.classList.add('secret','unlocked');
+    else if (unlocked.includes(key)) div.classList.add('unlocked');
+
+    if (unlocked.includes(key)) {
+      const title = info.secret ? 'Secret Achievement' : `Clicks: ${key}`;
+      div.innerHTML = `<div class="title">${title}</div><div>${info.text}</div>`;
+    } else {
+      // non-secret but locked -> show mystery
+      div.innerHTML = `<div class="title">???</div><div>???</div>`;
     }
+    achList.appendChild(div);
+    shownAny = true;
+  }
 
-    function showToast(title, message) {
-      const toast = document.createElement('div');
-      toast.classList.add('toast');
-      toast.innerHTML = `<div class="toast-title">${title}</div><div>${message}</div>`;
-      toastContainer.appendChild(toast);
-      setTimeout(() => toast.classList.add('show'), 100);
-      setTimeout(() => {
-        toast.classList.remove('show');
-        setTimeout(() => toast.remove(), 400);
-      }, 4000);
+  if (!shownAny) {
+    achList.innerHTML = `<div class="no-items">No achievements unlocked yet.</div>`;
+  }
+}
+
+/* ====== Update Stats panel ====== */
+function updateStatsPanel() {
+  statTotal.textContent = Math.floor(totalClicks).toLocaleString();
+  statCurrent.textContent = getMultiplier().toFixed(2) + 'x';
+  statPrestige.textContent = prestigeCount;
+  statUnlocked.textContent = unlocked.length;
+  const now = Date.now();
+  const playMs = savedPlaytime + (now - sessionStart);
+  statPlaytime.textContent = fmtTime(playMs);
+}
+
+/* ====== Auto-unlock function (checks thresholds <= current floor(count)) ====== */
+function autoUnlockExisting() {
+  const current = Math.floor(count);
+  let changed = false;
+  Object.keys(achievements).forEach(k => {
+    const thresh = parseInt(k);
+    if (current >= thresh && !unlocked.includes(k)) {
+      unlocked.push(k);
+      const secret = achievements[k].secret === true;
+      showToast('Achievement Earned!', achievements[k].text, secret);
+      changed = true;
     }
+  });
+  if (changed) {
+    saveUnlocked();
+  }
+}
 
-    countEl.textContent = count;
-    updateAchievementsTab();
+/* ====== Save helpers ====== */
+function saveAll() {
+  localStorage.setItem('count', String(count));
+  localStorage.setItem('totalClicks', String(totalClicks));
+  localStorage.setItem('prestigeCount', String(prestigeCount));
+  localStorage.setItem('savedPlaytime', String(savedPlaytime + (Date.now() - sessionStart)));
+}
+function saveUnlocked() {
+  localStorage.setItem('unlockedAchievements', JSON.stringify(unlocked));
+}
 
-    clickBtn.addEventListener('click', () => {
-      count++;
-      countEl.textContent = count;
-      localStorage.setItem('count', count);
+/* ====== Button behavior: clicking ====== */
+/* mobile double-tap prevention: keep the behavior that prevents double-tap zoom on button presses */
+document.addEventListener('touchstart', function(e){
+  if (e.target.tagName === 'BUTTON') { e.preventDefault(); e.target.click(); }
+}, { passive:false });
 
-      if (achievements[count] && !unlocked.includes(String(count))) {
-        unlocked.push(String(count));
-        localStorage.setItem('unlockedAchievements', JSON.stringify(unlocked));
-        showToast("Achievement Earned!", achievements[count]);
-        updateAchievementsTab();
-      }
-    });
+function refreshUI() {
+  // display integer count
+  countEl.textContent = Math.floor(count).toLocaleString();
+  // show/hide prestige button
+  const cost = getPrestigeCost();
+  if (Math.floor(count) >= cost) {
+    prestigeBtn.style.display = 'inline-block';
+    prestigeBtn.classList.add('prestige-ready');
+    prestigeBtn.textContent = `Prestige (${cost.toLocaleString()})`;
+  } else {
+    prestigeBtn.style.display = 'none';
+    prestigeBtn.classList.remove('prestige-ready');
+  }
+  updateAchievementsPanel();
+  updateStatsPanel();
+}
 
-    achievementsBtn.addEventListener('click', () => {
-      achievementsTab.classList.toggle('show');
-    });
+/* Core click action */
+clickBtn.addEventListener('click', () => {
+  const gained = getMultiplier(); // float
+  count += gained;
+  totalClicks += gained;
+  // save
+  localStorage.setItem('count', String(count));
+  localStorage.setItem('totalClicks', String(totalClicks));
+  // check achievements for any new thresholds passed
+  checkAchievementsAfterIncrement();
+  refreshUI();
+});
 
-    closeAchievements.addEventListener('click', () => {
-      achievementsTab.classList.remove('show');
-    });
+/* Check achievements for any thresholds passed (called after each increment) */
+function checkAchievementsAfterIncrement() {
+  const cur = Math.floor(count);
+  let newUnlocked = [];
+  // iterate numeric sorted keys
+  const keys = Object.keys(achievements).map(k=>parseInt(k)).sort((a,b)=>a-b);
+  for (const k of keys) {
+    const key = String(k);
+    if (cur >= k && !unlocked.includes(key)) {
+      unlocked.push(key);
+      newUnlocked.push(key);
+      // toast (gold if secret)
+      const secret = achievements[key].secret === true;
+      showToast('Achievement Earned!', achievements[key].text, secret);
+    }
+  }
+  if (newUnlocked.length) saveUnlocked();
+}
 
-    resetBtn.addEventListener('click', () => {
-      if (confirm("Are you sure you want to erase all your progress?")) {
-        localStorage.clear();
-        count = 0;
-        countEl.textContent = count;
-        unlocked.length = 0;
-        updateAchievementsTab();
-      }
-    });
-  </script>
+/* Prestige behavior */
+prestigeBtn.addEventListener('click', () => {
+  const cost = getPrestigeCost();
+  if (Math.floor(count) < cost) return;
+  if (!confirm('Prestiging resets your current clicks to 0 but increases your permanent multiplier. Proceed?')) return;
+  // increment prestige
+  prestigeCount++;
+  // reset current progress (but keep totalClicks accumulated)
+  count = 0;
+  // save prestige
+  localStorage.setItem('prestigeCount', String(prestigeCount));
+  localStorage.setItem('count', String(count));
+  // recalc multiplier shown via refreshUI
+  showToast('Prestige!', `You prestiged. Prestige level: ${prestigeCount}`, true);
+  saveAll();
+  refreshUI();
+});
+
+/* Reset (full clear) */
+resetBtn.addEventListener('click', () => {
+  if (!confirm('Erase ALL progress (clicks, prestiges, unlocked achievements)?')) return;
+  localStorage.clear();
+  // reset in-memory
+  count = 0; totalClicks = 0; unlocked = []; prestigeCount = 0; savedPlaytime = 0; firstSeen = Date.now(); sessionStart = Date.now();
+  showToast('Reset', 'All progress erased.');
+  refreshUI();
+});
+
+/* Panels open/close */
+achBtn.addEventListener('click', () => { achPanel.classList.toggle('show'); achPanel.setAttribute('aria-hidden', !achPanel.classList.contains('show')); });
+closeAch.addEventListener('click', () => { achPanel.classList.remove('show'); achPanel.setAttribute('aria-hidden','true'); });
+
+statsBtn.addEventListener('click', () => { statsPanel.classList.toggle('show'); statsPanel.setAttribute('aria-hidden', !statsPanel.classList.contains('show')); updateStatsPanel(); });
+closeStats.addEventListener('click', () => { statsPanel.classList.remove('show'); statsPanel.setAttribute('aria-hidden','true'); });
+
+/* Save playtime before unload */
+window.addEventListener('beforeunload', () => {
+  const now = Date.now();
+  const sessionMs = now - sessionStart;
+  savedPlaytime += sessionMs;
+  localStorage.setItem('savedPlaytime', String(savedPlaytime));
+  saveAll();
+});
+
+/* On load: ensure UI refreshed, auto-unlock any achievements already passed, and show initial toasts for newly unlocked ones */
+window.addEventListener('load', () => {
+  // ensure firstSeen exists
+  if (!firstSeen) {
+    firstSeen = Date.now();
+    localStorage.setItem('firstSeen', String(firstSeen));
+  }
+  // Auto-unlock if user already exceeded thresholds (use floor of count)
+  autoUnlockExisting();
+  refreshUI();
+});
+</script>
 </body>
 </html>
