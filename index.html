@@ -2,57 +2,73 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <!-- Prevent mobile zoom on double-tap -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Pointless Clicker (Prestige + Secrets)</title>
+  <title>Pointless Clicker — Bits & Prestige</title>
   <style>
-    html, body { touch-action: manipulation; } /* helps on mobile */
+    html,body { touch-action: manipulation; }
     body {
-      font-family: sans-serif;
-      background: #111;
+      background: #0f0f10;
       color: #eee;
-      text-align: center;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      gap: 12px;
-      margin: 0;
-      padding: 20px;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      min-height:100vh;
+      margin:0;
+      padding:20px;
+    }
+    .container {
+      width:100%;
+      max-width:420px;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:14px;
     }
 
-    header { display:flex; gap:8px; align-items:center; justify-content:center; width:100%; max-width:420px; }
-    h1 { font-size: 2.2rem; margin: 8px 0; }
+    #count { font-size:3rem; margin:6px 0; font-weight:700; color:#fff; text-align:center; }
 
-    .controls-vertical {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      align-items: center;
+    .controls {
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      width:100%;
+      align-items:center;
     }
 
     button {
-      background: #4caf50;
-      color: white;
+      background: #2e8b57;
+      color: #fff;
       border: none;
-      border-radius: 10px;
-      font-size: 1rem;
-      padding: 8px 16px;
-      cursor: pointer;
-      transition: transform .08s, background .15s;
+      border-radius:10px;
+      padding:12px 28px;
+      font-size:1.05rem;
+      cursor:pointer;
+      width:80%;
+      max-width:320px;
+      transition: transform .08s, box-shadow .12s;
       -webkit-tap-highlight-color: transparent;
     }
-    button:active { transform: scale(.96); }
-    .muted { background:#666; }
-    .blue { background:#2196f3; color:#fff; font-weight:600; }
+    button:active { transform: scale(.98); }
+    .blue { background:#1976d2; }
+    .muted { background:#555; }
+    .gold { background: #f0b429; color:#111; font-weight:700; }
     .red { background:#e53935; }
-    .gold { background: #f9a825; color:#222; font-weight:700; }
-    .prestige-ready { box-shadow: 0 6px 18px rgba(255,200,0,0.2); }
+    .small { padding:8px 16px; font-size:0.95rem; width:auto; }
+    .muted.small { background:#444; color:#ddd; }
 
-    #count { font-size: 3rem; margin:6px 0; }
+    .currents {
+      display:flex;
+      gap:12px;
+      width:100%;
+      justify-content:center;
+      align-items:center;
+      color:#cfcfcf;
+      font-size:0.95rem;
+      margin-top:6px;
+    }
+    .currents div { background: rgba(255,255,255,0.03); padding:6px 10px; border-radius:8px; }
 
-    /* toast */
     .toast-container {
       position: fixed;
       top: 18px;
@@ -63,72 +79,91 @@
       z-index:2000;
     }
     .toast {
-      background: rgba(28,28,28,0.96);
+      background: rgba(22,22,22,0.96);
       color:#fff;
-      border-left:5px solid #4caf50;
+      border-left: 5px solid #4caf50;
       padding:10px 14px;
       border-radius:8px;
-      min-width: 220px;
+      min-width:220px;
       transform: translateX(150%);
       opacity:0;
       transition: all .36s ease;
-      box-shadow: 0 6px 18px rgba(0,0,0,.5);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
       text-align:left;
     }
     .toast.show { transform: translateX(0); opacity:1; }
     .toast-title { font-weight:700; color:#4caf50; margin-bottom:4px; }
+    .toast.gold { border-left-color: gold; }
+    .toast.gold .toast-title { color:gold; }
 
-    /* achievements / stats modal */
     .panel {
       position: fixed;
       left: 50%;
       top: 50%;
       transform: translate(-50%,-50%) scale(.98);
-      width: 92%;
-      max-width: 420px;
-      max-height: 78vh;
+      width:92%;
+      max-width:420px;
+      max-height:80vh;
       overflow:auto;
-      background:#1f1f1f;
-      border:2px solid #333;
+      background:#161616;
       border-radius:12px;
-      padding:14px;
+      border:2px solid rgba(255,255,255,0.03);
+      padding:12px;
       display:none;
       z-index:1500;
-      box-shadow: 0 16px 40px rgba(0,0,0,.6);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.7);
     }
-    .panel.show { display:block; animation: pop .22s ease both; }
-    @keyframes pop { from { transform: translate(-50%,-50%) scale(.94); opacity:0 } to { transform: translate(-50%,-50%) scale(1); opacity:1 } }
+    .panel.show { display:block; animation: pop .18s ease both; }
+    @keyframes pop { from { opacity:0; transform:translate(-50%,-50%) scale(.96)} to { opacity:1; transform:translate(-50%,-50%) scale(1)} }
 
-    .panel h2 { margin:6px 0 8px 0; color:#4caf50; text-align:center; }
-    .panel .close { margin-left:auto; background:#e53935; padding:6px 10px; border-radius:8px; display:block; }
+    .panel h2 { margin:8px 0; color:#4caf50; text-align:center; }
+    .panel .close { float:right; background:#e53935; color:#fff; padding:6px 10px; border-radius:8px; cursor:pointer; }
 
-    .achievement { background:#292929; border-left:5px solid #555; padding:8px 10px; border-radius:8px; color:#ddd; margin:8px 0; }
-    .achievement.unlocked { border-left-color:#4caf50; color:#fff; background:#2a2a2a; box-shadow: inset 0 0 18px rgba(0,0,0,.2); }
-    .achievement.secret.unlocked { border-left-color: gold; box-shadow: 0 0 12px rgba(255,200,0,.12); color: #fff; background: #2b2206; }
-    .achievement .title { font-weight:700; margin-bottom:4px; }
+    .achievement { background:#1b1b1b; padding:10px 12px; border-radius:8px; border-left:5px solid #444; margin:8px 0; color:#ddd;}
+    .achievement.unlocked { border-left-color:#4caf50; color:#fff; background:#222; }
+    .achievement.secret.unlocked { border-left-color:gold; background:#2f2307; color:#fff; box-shadow: inset 0 0 18px rgba(255,200,0,0.03); }
+    .achievement .title { font-weight:700; margin-bottom:6px; }
+    .no-items { color:#999; text-align:center; font-style:italic; padding:12px 6px; }
 
-    .no-items { color:#999; font-style:italic; text-align:center; margin:12px 0; }
+    .upgrades { display:flex; flex-direction:column; gap:10px; }
+    .upgrade { display:flex; justify-content:space-between; align-items:center; gap:8px; background:#191919; padding:10px; border-radius:8px; }
+    .upgrade .meta { text-align:left; }
+    .upgrade .meta .name { font-weight:700; color:#ffd; }
+    .upgrade button { padding:8px 12px; }
 
     .stats-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-top:8px; }
-    .stat { background:#222; padding:10px; border-radius:8px; text-align:center; }
+    .stat { background:#171717; padding:10px; border-radius:8px; text-align:center; color:#ddd; }
 
-    footer { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%); color:#888; font-size:12px; }
+    footer { margin-top:8px; color:#777; font-size:12px; text-align:center; }
+
+    /* responsive adjustments */
+    @media (max-width:420px) {
+      button { width:88%; }
+      .controls { gap:8px; }
+    }
   </style>
 </head>
 <body>
-  <header>
-  </header>
+  <div class="container">
+    <div id="count">0</div>
 
-  <main>
-    <h1 id="count">0</h1>
-    <div class="controls-vertical">
-      <button id="clicker" style="font-size:1.5rem;padding:14px 28px;">Click Me</button>
+    <div class="controls">
+      <button id="clicker" style="font-size:1.35rem;padding:14px 24px;">Click Me</button>
       <button id="achBtn" class="blue">Achievements</button>
+      <button id="upgBtn" class="gold">Upgrades</button>
       <button id="statsBtn" class="muted">Stats</button>
-      <button id="prestigeBtn" class="gold" style="display:none;">Prestige (10,000)</button>
+      <button id="prestigeBtn" class="gold" style="display:none;">Prestige</button>
       <button id="resetBtn" class="red">Reset</button>
+
+      <div class="currents" style="margin-top:6px;">
+        <div id="bitsCur">Bits: 0</div>
+        <div id="bitsPerClick">Bits/Click: 1</div>
+        <div id="multCur">x1.00</div>
+      </div>
     </div>
-  </main>
+
+    <footer>Pointless Clicker — Bits, upgrades & prestige</footer>
+  </div>
 
   <div class="toast-container" id="toastContainer"></div>
 
@@ -139,15 +174,22 @@
     <div id="achList"></div>
   </div>
 
+  <!-- Upgrades panel -->
+  <div id="upgPanel" class="panel" aria-hidden="true">
+    <button id="closeUpg" class="close">Close</button>
+    <h2>Upgrades (Bits shop)</h2>
+    <div class="upgrades" id="upgList"></div>
+  </div>
+
   <!-- Stats panel -->
   <div id="statsPanel" class="panel" aria-hidden="true">
     <button id="closeStats" class="close">Close</button>
     <h2>Stats</h2>
     <div class="stats-grid">
       <div class="stat"><div style="font-size:18px;font-weight:700" id="statTotal">0</div><div>Total Clicks</div></div>
-      <div class="stat"><div style="font-size:18px;font-weight:700" id="statCurrent">1.00x</div><div>Current Multiplier</div></div>
-      <div class="stat"><div style="font-size:18px;font-weight:700" id="statPrestige">0</div><div>Prestige Count</div></div>
-      <div class="stat"><div style="font-size:18px;font-weight:700" id="statUnlocked">0</div><div>Achievements</div></div>
+      <div class="stat"><div style="font-size:18px;font-weight:700" id="statBits">0</div><div>Total Bits</div></div>
+      <div class="stat"><div style="font-size:18px;font-weight:700" id="statPrestige">0</div><div>Prestige</div></div>
+      <div class="stat"><div style="font-size:18px;font-weight:700" id="statUpgrades">0</div><div>Upgrades Owned</div></div>
     </div>
     <div style="margin-top:10px;">
       <div style="text-align:center;color:#bbb">Playtime</div>
@@ -155,43 +197,66 @@
     </div>
   </div>
 
-  <footer>Pointless Clicker — built for boredom</footer>
-
 <script>
-/* ====== DATA & STORAGE ====== */
-let count = parseFloat(localStorage.getItem('count')) || 0;           // current (can be float)
-let totalClicks = parseFloat(localStorage.getItem('totalClicks')) || 0; // cumulative clicks across prestiges
-let unlocked = JSON.parse(localStorage.getItem('unlockedAchievements')) || []; // array of keys (strings)
+/* ------------------------------
+   STORAGE & INITIAL STATE
+   ------------------------------ */
+let count = parseFloat(localStorage.getItem('count')) || 0;           // floating click total for current run
+let totalClicks = parseFloat(localStorage.getItem('totalClicks')) || 0; // all-time clicks (cumulative)
+let bits = parseFloat(localStorage.getItem('bits')) || 0;             // spendable currency
+let totalBitsEarned = parseFloat(localStorage.getItem('totalBitsEarned')) || 0;
+let bitsSpent = parseFloat(localStorage.getItem('bitsSpent')) || 0;
+let unlocked = JSON.parse(localStorage.getItem('unlockedAchievements')) || []; // strings of keys
 let prestigeCount = parseInt(localStorage.getItem('prestigeCount')) || 0;
 let firstSeen = parseInt(localStorage.getItem('firstSeen')) || Date.now();
-let savedPlaytime = parseInt(localStorage.getItem('savedPlaytime')) || 0; // ms
+let savedPlaytime = parseInt(localStorage.getItem('savedPlaytime')) || 0;
+let lastPlayed = parseInt(localStorage.getItem('lastPlayed')) || Date.now();
 let sessionStart = Date.now();
+let offlineClicksEarned = parseInt(localStorage.getItem('offlineClicksEarned')) || 0;
+
+/* upgrades structure (levels) */
+let upgrades = JSON.parse(localStorage.getItem('upgrades')) || {
+  finger: 0,    // +0.1 click power per level
+  mouse: 0,     // +0.25 click power per level
+  energy: 0,    // +1 auto-click/sec per level
+  magnet: 0     // secret one-time double bits (0 or 1)
+};
 
 /* UI elements */
 const countEl = document.getElementById('count');
 const clickBtn = document.getElementById('clicker');
 const achBtn = document.getElementById('achBtn');
+const upgBtn = document.getElementById('upgBtn');
 const statsBtn = document.getElementById('statsBtn');
-const resetBtn = document.getElementById('resetBtn');
 const prestigeBtn = document.getElementById('prestigeBtn');
+const resetBtn = document.getElementById('resetBtn');
+
+const bitsCur = document.getElementById('bitsCur');
+const bitsPerClickEl = document.getElementById('bitsPerClick');
+const multCur = document.getElementById('multCur');
 
 const toastContainer = document.getElementById('toastContainer');
+
 const achPanel = document.getElementById('achPanel');
 const achList = document.getElementById('achList');
 const closeAch = document.getElementById('closeAch');
 
+const upgPanel = document.getElementById('upgPanel');
+const upgList = document.getElementById('upgList');
+const closeUpg = document.getElementById('closeUpg');
+
 const statsPanel = document.getElementById('statsPanel');
 const closeStats = document.getElementById('closeStats');
 const statTotal = document.getElementById('statTotal');
-const statCurrent = document.getElementById('statCurrent');
+const statBits = document.getElementById('statBits');
 const statPrestige = document.getElementById('statPrestige');
-const statUnlocked = document.getElementById('statUnlocked');
+const statUpgrades = document.getElementById('statUpgrades');
 const statPlaytime = document.getElementById('statPlaytime');
 
-/* ====== ACHIEVEMENTS (regular and secret combined) ======
-   format: key: { text: "...", secret: true|false }
-   secret: true means hidden until unlocked and displayed in gold when unlocked.
-*/
+/* ------------------------------
+   ACHIEVEMENTS (with secrets)
+   keep keys as strings
+   ------------------------------ */
 const achievements = {
   "1": { text: "Ah yes, the first click. So the journey begins.", secret:false },
   "5": { text: "You've clicked... once? Twice? Eh..", secret:false },
@@ -255,229 +320,458 @@ const achievements = {
   "99999": { text: "How did you even get here?", secret:true }
 };
 
-/* ====== Multiplier (scaling prestige formula) ======
-   formula: multiplier = 1 + Math.pow(prestigeCount * 0.1, 1.3)
-   (prestigeCount 0 -> 1.0)
-*/
-function getMultiplier() {
+/* ------------------------------
+   UTILS & BALANCE
+   ------------------------------ */
+function getClickPrestigeMultiplier() {
+  // earlier agreed scaling prestige multiplier for click value (Option 2)
   if (prestigeCount <= 0) return 1;
   return 1 + Math.pow(prestigeCount * 0.1, 1.3);
 }
-
-/* ====== UTIL: format ms to nice string ====== */
-function fmtTime(ms) {
-  const s = Math.floor(ms / 1000);
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  if (h) return `${h}h ${m}m ${sec}s`;
-  if (m) return `${m}m ${sec}s`;
-  return `${sec}s`;
+function getBitsPrestigeMultiplier() {
+  // Bits gain increases by 15% per prestige (multiplicative)
+  return Math.pow(1.15, prestigeCount);
+}
+/* base bits per click = 1, plus upgrades increase */
+function getBaseBitsPerClick() {
+  let base = 1;
+  // optionally Finger/Mouse upgrades could also increase bits-per-click in future, but for now Finger/Mouse increase click power (affects clicks) and Bits per click is separate.
+  // We'll let Fancy Mouse and Finger increase click *power* (clicks per click), but Bits per click is 1 * bitsMultiplier * (magnet double)
+  let mult = getBitsPrestigeMultiplier();
+  if (upgrades.magnet && upgrades.magnet > 0) mult *= 2;
+  return base * mult;
 }
 
-/* ====== Prestige ====== */
-function getPrestigeCost() {
-  return 10000 + prestigeCount * 10000; // base 10k + 10k per existing prestige
+/* click power from upgrades */
+function getClickPower() {
+  // base click = 1; upgrades add flat amounts; prestige multiplies
+  let base = 1;
+  base += (upgrades.finger || 0) * 0.1; // Finger Strength: +0.1 click power
+  base += (upgrades.mouse || 0) * 0.25; // Fancy Mouse: +0.25 click power
+  return base * getClickPrestigeMultiplier();
 }
 
-/* ====== UI: toast (can be gold for secret) ====== */
+/* auto click per second from upgrades */
+function getAutoClicksPerSec() {
+  return (upgrades.energy || 0) * 1; // each level = +1 click/sec
+}
+
+/* cost functions (bits) */
+function costFor(levelBase, lvl, scale=1.5) {
+  // levelBase = base cost for level 0->1; lvl = current level
+  // return next level cost
+  return Math.ceil(levelBase * Math.pow(scale, lvl));
+}
+
+/* format helpers */
+function fmt(n) { return Math.floor(n).toLocaleString(); }
+function fmtFloat(n, digits=2) { return Number(n).toFixed(digits); }
+
+/* ------------------------------
+   TOASTS
+   ------------------------------ */
 function showToast(title, message, secret=false) {
   const t = document.createElement('div');
-  t.className = 'toast';
-  if (secret) t.style.borderLeft = '5px solid gold';
-  t.innerHTML = `<div class="toast-title" style="color:${secret ? 'gold' : '#4caf50'}">${title}</div><div>${message}</div>`;
+  t.className = 'toast' + (secret ? ' gold' : '');
+  t.innerHTML = `<div class="toast-title">${title}</div><div>${message}</div>`;
   toastContainer.appendChild(t);
-  // animate in
   requestAnimationFrame(()=> t.classList.add('show'));
   setTimeout(()=> {
     t.classList.remove('show');
-    setTimeout(()=> t.remove(), 400);
-  }, 3800);
+    setTimeout(()=> t.remove(), 380);
+  }, 3200);
 }
 
-/* ====== Update Achievements panel (only show unlocked and non-secret locked as ???) ====== */
-function updateAchievementsPanel() {
-  achList.innerHTML = '';
-  let shownAny = false;
-  // Regular/secret both in same object; iterate sorted by numeric key
-  const keys = Object.keys(achievements).map(k=>parseInt(k)).sort((a,b)=>a-b);
-  for (const k of keys) {
-    const key = String(k);
-    const info = achievements[key];
-    // if secret and not unlocked -> skip (don't show placeholder)
-    if (info.secret && !unlocked.includes(key)) continue;
-
-    const div = document.createElement('div');
-    div.className = 'achievement';
-    if (info.secret && unlocked.includes(key)) div.classList.add('secret','unlocked');
-    else if (unlocked.includes(key)) div.classList.add('unlocked');
-
-    if (unlocked.includes(key)) {
-      const title = info.secret ? 'Secret Achievement' : `Clicks: ${key}`;
-      div.innerHTML = `<div class="title">${title}</div><div>${info.text}</div>`;
-    } else {
-      // non-secret but locked -> show mystery
-      div.innerHTML = `<div class="title">???</div><div>???</div>`;
-    }
-    achList.appendChild(div);
-    shownAny = true;
-  }
-
-  if (!shownAny) {
-    achList.innerHTML = `<div class="no-items">No achievements unlocked yet.</div>`;
-  }
+/* ------------------------------
+   SAVE helpers
+   ------------------------------ */
+function saveAll() {
+  localStorage.setItem('count', String(count));
+  localStorage.setItem('totalClicks', String(totalClicks));
+  localStorage.setItem('bits', String(bits));
+  localStorage.setItem('totalBitsEarned', String(totalBitsEarned));
+  localStorage.setItem('bitsSpent', String(bitsSpent));
+  localStorage.setItem('unlockedAchievements', JSON.stringify(unlocked));
+  localStorage.setItem('prestigeCount', String(prestigeCount));
+  localStorage.setItem('firstSeen', String(firstSeen));
+  localStorage.setItem('savedPlaytime', String(savedPlaytime + (Date.now() - sessionStart)));
+  localStorage.setItem('lastPlayed', String(Date.now()));
+  localStorage.setItem('offlineClicksEarned', String(offlineClicksEarned));
+  localStorage.setItem('upgrades', JSON.stringify(upgrades));
 }
 
-/* ====== Update Stats panel ====== */
-function updateStatsPanel() {
-  statTotal.textContent = Math.floor(totalClicks).toLocaleString();
-  statCurrent.textContent = getMultiplier().toFixed(2) + 'x';
-  statPrestige.textContent = prestigeCount;
-  statUnlocked.textContent = unlocked.length;
-  const now = Date.now();
-  const playMs = savedPlaytime + (now - sessionStart);
-  statPlaytime.textContent = fmtTime(playMs);
-}
-
-/* ====== Auto-unlock function (checks thresholds <= current floor(count)) ====== */
+/* ------------------------------
+   ACHIEVEMENTS MANAGEMENT
+   ------------------------------ */
 function autoUnlockExisting() {
-  const current = Math.floor(count);
+  const cur = Math.floor(count);
   let changed = false;
-  Object.keys(achievements).forEach(k => {
+  Object.keys(achievements).forEach(k=>{
     const thresh = parseInt(k);
-    if (current >= thresh && !unlocked.includes(k)) {
+    if (cur >= thresh && !unlocked.includes(k)) {
       unlocked.push(k);
       const secret = achievements[k].secret === true;
       showToast('Achievement Earned!', achievements[k].text, secret);
       changed = true;
     }
   });
-  if (changed) {
-    saveUnlocked();
+  if (changed) saveUnlocked();
+}
+function saveUnlocked() { localStorage.setItem('unlockedAchievements', JSON.stringify(unlocked)); }
+
+function updateAchievementsPanel() {
+  achList.innerHTML = '';
+  let shownAny = false;
+  const keys = Object.keys(achievements).map(k=>parseInt(k)).sort((a,b)=>a-b);
+  for (const k of keys) {
+    const key = String(k);
+    const info = achievements[key];
+    if (info.secret && !unlocked.includes(key)) continue; // hide secret that aren't unlocked
+    const div = document.createElement('div');
+    div.className = 'achievement';
+    if (unlocked.includes(key)) {
+      if (info.secret) div.classList.add('secret','unlocked');
+      else div.classList.add('unlocked');
+      const title = info.secret ? 'Secret Achievement' : `Clicks: ${key}`;
+      div.innerHTML = `<div class="title">${title}</div><div>${info.text}</div>`;
+    } else {
+      div.innerHTML = `<div class="title">???</div><div>???</div>`;
+    }
+    achList.appendChild(div);
+    shownAny = true;
   }
+  if (!shownAny) achList.innerHTML = `<div class="no-items">No achievements unlocked yet.</div>`;
 }
 
-/* ====== Save helpers ====== */
-function saveAll() {
-  localStorage.setItem('count', String(count));
-  localStorage.setItem('totalClicks', String(totalClicks));
-  localStorage.setItem('prestigeCount', String(prestigeCount));
-  localStorage.setItem('savedPlaytime', String(savedPlaytime + (Date.now() - sessionStart)));
-}
-function saveUnlocked() {
-  localStorage.setItem('unlockedAchievements', JSON.stringify(unlocked));
+/* ------------------------------
+   UPGRADES SHOP
+   ------------------------------ */
+const shop = [
+  { id:'finger', name:'Finger Strength', desc:'+0.1 click power per level', baseCost:50 },
+  { id:'mouse',  name:'Fancy Mouse', desc:'+0.25 click power per level', baseCost:200 },
+  { id:'energy', name:'Energy Drink', desc:'+1 auto-click/sec per level', baseCost:250 },
+  // secret one-time upgrade (magnet)
+  { id:'magnet', name:'Bit Magnet (secret)', desc:'Double Bits gain (one-time)', baseCost:5000, secret:true, oneTime:true }
+];
+
+function renderShop() {
+  upgList.innerHTML = '';
+  for (const item of shop) {
+    const lvl = upgrades[item.id] || 0;
+    const price = costFor(item.baseCost, lvl, 1.55);
+    const div = document.createElement('div');
+    div.className = 'upgrade';
+    div.innerHTML = `
+      <div class="meta">
+        <div class="name">${item.name}${item.oneTime && lvl>0 ? ' (owned)' : ''}</div>
+        <div style="font-size:0.9rem;color:#ccc">${item.desc}</div>
+        <div style="font-size:0.85rem;color:#aaa">Level: ${lvl}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+        <div style="font-weight:700">${price.toLocaleString()} bits</div>
+        <button data-id="${item.id}" ${ (item.oneTime && lvl>0) ? 'disabled' : '' } class="buy-btn small ${item.secret ? '' : ''}">Buy</button>
+      </div>
+    `;
+    upgList.appendChild(div);
+  }
+  // attach buy listeners
+  document.querySelectorAll('.buy-btn').forEach(btn=>{
+    btn.onclick = ()=> {
+      const id = btn.getAttribute('data-id');
+      buyUpgrade(id);
+    };
+  });
 }
 
-/* ====== Button behavior: clicking ====== */
-/* mobile double-tap prevention: keep the behavior that prevents double-tap zoom on button presses */
-document.addEventListener('touchstart', function(e){
-  if (e.target.tagName === 'BUTTON') { e.preventDefault(); e.target.click(); }
-}, { passive:false });
+/* buy logic */
+function buyUpgrade(id) {
+  const item = shop.find(s=>s.id===id);
+  if (!item) return;
+  const lvl = upgrades[id] || 0;
+  const price = costFor(item.baseCost, lvl, 1.55);
+  if (bits < price) { showToast('Not enough Bits', `You need ${price} bits.`); return; }
+  // spend bits
+  bits -= price;
+  bitsSpent += price;
+  totalBitsEarned = totalBitsEarned; // unchanged
+  // level up
+  if (item.oneTime) upgrades[id] = 1;
+  else upgrades[id] = lvl + 1;
+  // start auto-clicker if energy bought
+  if (id === 'energy') startAutoClicker();
+  saveAll();
+  renderShop();
+  refreshUI();
+  showToast('Purchased', `${item.name} purchased!`);
+}
 
+/* ------------------------------
+   AUTO-CLICKER (live)
+   ------------------------------ */
+let autoInterval = null;
+function startAutoClicker() {
+  if (autoInterval) return;
+  autoInterval = setInterval(()=>{
+    const perSec = getAutoClicksPerSec();
+    if (perSec <= 0) return;
+    // add perSec clicks (apply click power)
+    const gained = perSec * getClickPower();
+    count += gained;
+    totalClicks += gained;
+    // bits from those clicks
+    const bitsGained = perSec * getBaseBitsPerClick();
+    bits += bitsGained;
+    totalBitsEarned += bitsGained;
+    saveAll();
+    checkAchievementsAfterIncrement();
+    refreshUI();
+  }, 1000);
+}
+function stopAutoClicker() {
+  if (!autoInterval) return;
+  clearInterval(autoInterval);
+  autoInterval = null;
+}
+
+/* ------------------------------
+   UI REFRESH
+   ------------------------------ */
 function refreshUI() {
-  // display integer count
-  countEl.textContent = Math.floor(count).toLocaleString();
-  // show/hide prestige button
-  const cost = getPrestigeCost();
-  if (Math.floor(count) >= cost) {
+  countEl.textContent = fmt(count);
+  bitsCur.textContent = `Bits: ${fmt(bits)}`;
+  bitsPerClickEl.textContent = `Bits/Click: ${fmtFloat(getBaseBitsPerClick(),2)}`;
+  multCur.textContent = `x${getClickPrestigeMultiplier().toFixed(2)}`;
+  // prestige button appears only after threshold
+  const prestigeCost = 10000; // requirement to prestige (we decided earlier)
+  if (Math.floor(count) >= prestigeCost) {
     prestigeBtn.style.display = 'inline-block';
+    prestigeBtn.textContent = `Prestige (requires ${prestigeCost.toLocaleString()} clicks)`;
     prestigeBtn.classList.add('prestige-ready');
-    prestigeBtn.textContent = `Prestige (${cost.toLocaleString()})`;
   } else {
     prestigeBtn.style.display = 'none';
     prestigeBtn.classList.remove('prestige-ready');
   }
   updateAchievementsPanel();
   updateStatsPanel();
+  renderShop();
 }
 
-/* Core click action */
-clickBtn.addEventListener('click', () => {
-  const gained = getMultiplier(); // float
-  count += gained;
-  totalClicks += gained;
-  // save
-  localStorage.setItem('count', String(count));
-  localStorage.setItem('totalClicks', String(totalClicks));
-  // check achievements for any new thresholds passed
-  checkAchievementsAfterIncrement();
-  refreshUI();
-});
-
-/* Check achievements for any thresholds passed (called after each increment) */
+/* ------------------------------
+   CHECK ACHIEVEMENTS after increment
+   ------------------------------ */
 function checkAchievementsAfterIncrement() {
   const cur = Math.floor(count);
-  let newUnlocked = [];
-  // iterate numeric sorted keys
+  let any = false;
   const keys = Object.keys(achievements).map(k=>parseInt(k)).sort((a,b)=>a-b);
   for (const k of keys) {
     const key = String(k);
     if (cur >= k && !unlocked.includes(key)) {
       unlocked.push(key);
-      newUnlocked.push(key);
-      // toast (gold if secret)
+      any = true;
       const secret = achievements[key].secret === true;
       showToast('Achievement Earned!', achievements[key].text, secret);
     }
   }
-  if (newUnlocked.length) saveUnlocked();
+  if (any) saveUnlocked();
+}
+function saveUnlocked() { localStorage.setItem('unlockedAchievements', JSON.stringify(unlocked)); }
+
+/* ------------------------------
+   OFFLINE GAIN
+   ------------------------------ */
+function handleOfflineGain() {
+  const now = Date.now();
+  const secsAway = Math.floor((now - lastPlayed) / 1000);
+  if (secsAway < 5) {
+    lastPlayed = now;
+    localStorage.setItem('lastPlayed', String(lastPlayed));
+    return;
+  }
+  // base: 1 click per 5 seconds offline
+  const baseClicks = Math.floor(secsAway / 5);
+  // energy levels increase offline effectiveness: each energy level adds +1 to the rate (so 1 + energy)
+  const multiplier = 1 + (upgrades.energy || 0);
+  const offlineClicks = Math.floor(baseClicks * multiplier);
+  if (offlineClicks <= 0) { lastPlayed = now; localStorage.setItem('lastPlayed', String(lastPlayed)); return; }
+
+  // apply them: convert offlineClicks into clicks and bits
+  const clicksGained = offlineClicks * getClickPower();
+  const bitsGained = offlineClicks * getBaseBitsPerClick();
+  count += clicksGained;
+  totalClicks += clicksGained;
+  bits += bitsGained;
+  totalBitsEarned += bitsGained;
+  offlineClicksEarned += offlineClicks;
+
+  lastPlayed = now;
+  localStorage.setItem('lastPlayed', String(lastPlayed));
+  saveAll();
+  showToast('Welcome back!', `You earned ${fmt(offlineClicks)} offline clicks (+${fmtFloat(bitsGained,2)} bits).`);
+  checkAchievementsAfterIncrement();
 }
 
-/* Prestige behavior */
-prestigeBtn.addEventListener('click', () => {
-  const cost = getPrestigeCost();
-  if (Math.floor(count) < cost) return;
-  if (!confirm('Prestiging resets your current clicks to 0 but increases your permanent multiplier. Proceed?')) return;
-  // increment prestige
-  prestigeCount++;
-  // reset current progress (but keep totalClicks accumulated)
-  count = 0;
-  // save prestige
-  localStorage.setItem('prestigeCount', String(prestigeCount));
-  localStorage.setItem('count', String(count));
-  // recalc multiplier shown via refreshUI
-  showToast('Prestige!', `You prestiged. Prestige level: ${prestigeCount}`, true);
+/* ------------------------------
+   CLICK HANDLER
+   ------------------------------ */
+clickBtn.addEventListener('click', () => {
+  const clickGain = getClickPower();
+  count += clickGain;
+  totalClicks += clickGain;
+
+  // bits awarded per click (base bits per click * bitsPrestigeMultiplier, magnet doubles)
+  const bitsGained = getBaseBitsPerClick();
+  bits += bitsGained;
+  totalBitsEarned += bitsGained;
+
   saveAll();
+  checkAchievementsAfterIncrement();
   refreshUI();
 });
 
-/* Reset (full clear) */
-resetBtn.addEventListener('click', () => {
-  if (!confirm('Erase ALL progress (clicks, prestiges, unlocked achievements)?')) return;
+/* ------------------------------
+   PRESTIGE
+   ------------------------------ */
+prestigeBtn.addEventListener('click', ()=>{
+  const req = 10000;
+  if (Math.floor(count) < req) return;
+  if (!confirm('Prestiging resets current clicks, Bits and upgrades but gives a permanent 15% Bits gain multiplier. Proceed?')) return;
+  // increment prestige, reset many things
+  prestigeCount++;
+  // reset run variables
+  count = 0;
+  // bits reset to 0 (spent and earned tracked)
+  bits = 0;
+  // reset upgrades
+  upgrades = { finger:0, mouse:0, energy:0, magnet:0 };
+  // stop auto clicker
+  stopAutoClicker();
+  // persist
+  saveAll();
+  saveUnlocked();
+  showToast('Prestige!', `You prestiged. Prestige level: ${prestigeCount}. Bits gain increased permanently.`, true);
+  refreshUI();
+});
+
+/* ------------------------------
+   RESET (clear everything)
+   ------------------------------ */
+resetBtn.addEventListener('click', ()=>{
+  if (!confirm('Erase ALL progress (clicks, bits, prestige, upgrades)?')) return;
   localStorage.clear();
   // reset in-memory
-  count = 0; totalClicks = 0; unlocked = []; prestigeCount = 0; savedPlaytime = 0; firstSeen = Date.now(); sessionStart = Date.now();
+  count=0; totalClicks=0; bits=0; totalBitsEarned=0; bitsSpent=0; unlocked=[]; prestigeCount=0; upgrades={finger:0,mouse:0,energy:0,magnet:0}; savedPlaytime=0; sessionStart=Date.now(); lastPlayed=Date.now(); offlineClicksEarned=0;
+  stopAutoClicker();
   showToast('Reset', 'All progress erased.');
   refreshUI();
 });
 
-/* Panels open/close */
-achBtn.addEventListener('click', () => { achPanel.classList.toggle('show'); achPanel.setAttribute('aria-hidden', !achPanel.classList.contains('show')); });
-closeAch.addEventListener('click', () => { achPanel.classList.remove('show'); achPanel.setAttribute('aria-hidden','true'); });
+/* ------------------------------
+   PANELS open/close
+   ------------------------------ */
+achBtn.addEventListener('click', ()=>{ achPanel.classList.toggle('show'); achPanel.setAttribute('aria-hidden', !achPanel.classList.contains('show')); updateAchievementsPanel(); });
+closeAch.addEventListener('click', ()=>{ achPanel.classList.remove('show'); achPanel.setAttribute('aria-hidden','true'); });
 
-statsBtn.addEventListener('click', () => { statsPanel.classList.toggle('show'); statsPanel.setAttribute('aria-hidden', !statsPanel.classList.contains('show')); updateStatsPanel(); });
-closeStats.addEventListener('click', () => { statsPanel.classList.remove('show'); statsPanel.setAttribute('aria-hidden','true'); });
+upgBtn.addEventListener('click', ()=>{ upgPanel.classList.toggle('show'); upgPanel.setAttribute('aria-hidden', !upgPanel.classList.contains('show')); renderShop(); });
+closeUpg.addEventListener('click', ()=>{ upgPanel.classList.remove('show'); upgPanel.setAttribute('aria-hidden','true'); });
 
-/* Save playtime before unload */
-window.addEventListener('beforeunload', () => {
+statsBtn.addEventListener('click', ()=>{ statsPanel.classList.toggle('show'); statsPanel.setAttribute('aria-hidden', !statsPanel.classList.contains('show')); updateStatsPanel(); });
+closeStats.addEventListener('click', ()=>{ statsPanel.classList.remove('show'); statsPanel.setAttribute('aria-hidden','true'); });
+
+/* ------------------------------
+   SHOP and save on unload
+   ------------------------------ */
+document.addEventListener('touchstart', function(e){ if (e.target.tagName === 'BUTTON') { e.preventDefault(); e.target.click(); } }, { passive:false });
+
+window.addEventListener('beforeunload', ()=>{
   const now = Date.now();
-  const sessionMs = now - sessionStart;
-  savedPlaytime += sessionMs;
+  const sess = now - sessionStart;
+  savedPlaytime += sess;
   localStorage.setItem('savedPlaytime', String(savedPlaytime));
+  lastPlayed = now;
+  localStorage.setItem('lastPlayed', String(lastPlayed));
   saveAll();
 });
 
-/* On load: ensure UI refreshed, auto-unlock any achievements already passed, and show initial toasts for newly unlocked ones */
-window.addEventListener('load', () => {
-  // ensure firstSeen exists
-  if (!firstSeen) {
-    firstSeen = Date.now();
-    localStorage.setItem('firstSeen', String(firstSeen));
-  }
-  // Auto-unlock if user already exceeded thresholds (use floor of count)
+/* ------------------------------
+   ON LOAD: run setup
+   ------------------------------ */
+window.addEventListener('load', ()=>{
+  // ensure firstSeen
+  if (!firstSeen) { firstSeen = Date.now(); localStorage.setItem('firstSeen', String(firstSeen)); }
+  // handle offline gain since lastPlayed
+  handleOfflineGain();
+
+  // start auto-clicker if energy level > 0
+  if ((upgrades.energy || 0) > 0) startAutoClicker();
+
+  // auto-unlock any achievements already passed
   autoUnlockExisting();
+
+  // initial render
   refreshUI();
 });
+
+/* small helper to count owned upgrades */
+function countOwnedUpgrades() {
+  return (upgrades.finger||0) + (upgrades.mouse||0) + (upgrades.energy||0) + (upgrades.magnet||0);
+}
+function updateStatsPanel() {
+  statTotal.textContent = Math.floor(totalClicks).toLocaleString();
+  statBits.textContent = Math.floor(totalBitsEarned).toLocaleString();
+  statPrestige.textContent = prestigeCount;
+  statUpgrades.textContent = countOwnedUpgrades();
+  const now = Date.now();
+  const playMs = savedPlaytime + (now - sessionStart);
+  statPlaytime.textContent = (function(ms){ const s=Math.floor(ms/1000), h=Math.floor(s/3600), m=Math.floor((s%3600)/60), sec=s%60; if (h) return `${h}h ${m}m ${sec}s`; if (m) return `${m}m ${sec}s`; return `${sec}s`; })(playMs);
+}
+
+/* render shop once on call */
+function renderShop() {
+  renderShopInner();
+}
+function renderShopInner() {
+  upgList.innerHTML = '';
+  for (const item of shop) {
+    const lvl = upgrades[item.id] || 0;
+    const price = costFor(item.baseCost, lvl, 1.55);
+    const wrapper = document.createElement('div');
+    wrapper.className = 'upgrade';
+    wrapper.innerHTML = `
+      <div class="meta">
+        <div class="name">${item.name}${item.oneTime && lvl>0 ? ' (owned)' : ''}</div>
+        <div style="font-size:0.9rem;color:#ccc">${item.desc}</div>
+        <div style="font-size:0.85rem;color:#aaa">Level: ${lvl}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+        <div style="font-weight:700">${price.toLocaleString()} bits</div>
+        <button class="buy-btn small" data-id="${item.id}" ${ (item.oneTime && lvl>0) ? 'disabled' : '' }>${ (item.oneTime && lvl>0) ? 'Owned' : 'Buy' }</button>
+      </div>
+    `;
+    upgList.appendChild(wrapper);
+  }
+  // attach listeners
+  document.querySelectorAll('.buy-btn').forEach(b=>{
+    b.onclick = ()=> {
+      const id = b.getAttribute('data-id');
+      buyUpgrade(id);
+    };
+  });
+}
+
+/* we already defined shop at top; ensure shop variable is available here (redeclare if needed) */
+//if (typeof shop === 'undefined') {
+  // fallback (shouldn't happen)
+  //var shop = [
+    //{ id:'finger', name:'Finger Strength', desc:'+0.1 click power per level', baseCost:50 },
+    //{ id:'mouse', name:'Fancy Mouse', desc:'+0.25 click power per level', baseCost:200 },
+    //{ id:'energy', name:'Energy Drink', desc:'+1 auto-click/sec per level', baseCost:250 },
+    //{ id:'magnet', name:'Bit Magnet (secret)', desc:'Double Bits gain (one-time)', baseCost:5000, secret:true, oneTime:true }
+  //];
+//}
+
+/* final tiny init */
+renderShopInner();
+refreshUI();
 </script>
 </body>
 </html>
