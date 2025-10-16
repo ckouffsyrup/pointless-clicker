@@ -26,6 +26,7 @@
       gap:14px;
     }
 
+    #cps { color: #c399ff; font-weight:700; margin-bottom:4px; } /* purple CPS */
     #count { font-size:3rem; margin:6px 0; font-weight:700; color:#fff; text-align:center; }
 
     .controls {
@@ -113,6 +114,7 @@
       z-index:1500;
       box-shadow: 0 20px 60px rgba(0,0,0,0.7);
     }
+    
     .panel.show { display:block; animation: pop .18s ease both; }
     @keyframes pop { from { opacity:0; transform:translate(-50%,-50%) scale(.96)} to { opacity:1; transform:translate(-50%,-50%) scale(1)} }
 
@@ -145,6 +147,7 @@
 </head>
 <body>
   <div class="container">
+    <div id="cps">CPS: 0</div>
     <div id="count">0</div>
 
     <div class="controls">
@@ -201,12 +204,12 @@
 /* ------------------------------
    STORAGE & INITIAL STATE
    ------------------------------ */
-let count = parseFloat(localStorage.getItem('count')) || 0;           // floating click total for current run
-let totalClicks = parseFloat(localStorage.getItem('totalClicks')) || 0; // all-time clicks (cumulative)
-let bits = parseFloat(localStorage.getItem('bits')) || 0;             // spendable currency
+let count = parseFloat(localStorage.getItem('count')) || 0;
+let totalClicks = parseFloat(localStorage.getItem('totalClicks')) || 0;
+let bits = parseFloat(localStorage.getItem('bits')) || 0;
 let totalBitsEarned = parseFloat(localStorage.getItem('totalBitsEarned')) || 0;
 let bitsSpent = parseFloat(localStorage.getItem('bitsSpent')) || 0;
-let unlocked = JSON.parse(localStorage.getItem('unlockedAchievements')) || []; // strings of keys
+let unlocked = JSON.parse(localStorage.getItem('unlockedAchievements')) || [];
 let prestigeCount = parseInt(localStorage.getItem('prestigeCount')) || 0;
 let firstSeen = parseInt(localStorage.getItem('firstSeen')) || Date.now();
 let savedPlaytime = parseInt(localStorage.getItem('savedPlaytime')) || 0;
@@ -214,16 +217,20 @@ let lastPlayed = parseInt(localStorage.getItem('lastPlayed')) || Date.now();
 let sessionStart = Date.now();
 let offlineClicksEarned = parseInt(localStorage.getItem('offlineClicksEarned')) || 0;
 
-/* upgrades structure (levels) */
+/* upgrades structure */
 let upgrades = JSON.parse(localStorage.getItem('upgrades')) || {
-  finger: 0,    // +0.1 click power per level
-  mouse: 0,     // +0.25 click power per level
-  energy: 0,    // +1 auto-click/sec per level
-  magnet: 0     // secret one-time double bits (0 or 1)
+  finger: 0,
+  mouse: 0,
+  energy: 0,
+  magnet: 0,
+  turbo: 0,
+  factory: 0,
+  bank: 0
 };
 
-/* UI elements */
+/* UI */
 const countEl = document.getElementById('count');
+const cpsEl = document.getElementById('cps');
 const clickBtn = document.getElementById('clicker');
 const achBtn = document.getElementById('achBtn');
 const upgBtn = document.getElementById('upgBtn');
@@ -255,7 +262,6 @@ const statPlaytime = document.getElementById('statPlaytime');
 
 /* ------------------------------
    ACHIEVEMENTS (with secrets)
-   keep keys as strings
    ------------------------------ */
 const achievements = {
   "1": { text: "Ah yes, the first click. So the journey begins.", secret:false },
@@ -317,55 +323,65 @@ const achievements = {
   "50000": { text: "Again, just why?", secret:false },
   "55000": { text: "So uh, when you stopping?", secret:false },
   "69696": { text: "Ultimate nice achieved.", secret:true },
-  "99999": { text: "How did you even get here?", secret:true }
+  "70000": { text: "You really gotta stop man.", secret:false},
+  "80000": { text: "This is getting out of hand.", secret:false},
+  "90000": { text: "Soooo... When we stopping???", secret:false},
+  "99999": { text: "How did you even get here?", secret:true},
+  "100000": { text: "Do you always no-life games like this?", secret:false},
+  "120000": { text: "What's the point? Are you THAT bored?", secret:false},
+  "150000": { text: "I'm not impressed anymore...", secret:false},
+  "200000": { text: "Any minute now you'll give up.... right?", secret:true},
+  "250000": { text: "Do you get bullied?", secret:false},
+  "300000": { text: "You should.", secret:false},
+  "500000": { text: "Just give up already.", secret:false},
+  "700000": { text: "You really are annoying", secret:true},
+  "1000000": { text: "I hope you get/got bullied in school.", secret:false}
 };
 
 /* ------------------------------
    UTILS & BALANCE
    ------------------------------ */
 function getClickPrestigeMultiplier() {
-  // earlier agreed scaling prestige multiplier for click value (Option 2)
   if (prestigeCount <= 0) return 1;
   return 1 + Math.pow(prestigeCount * 0.1, 1.3);
 }
 function getBitsPrestigeMultiplier() {
-  // Bits gain increases by 15% per prestige (multiplicative)
   return Math.pow(1.15, prestigeCount);
 }
-/* base bits per click = 1, plus upgrades increase */
 function getBaseBitsPerClick() {
-  let base = 1;
-  // optionally Finger/Mouse upgrades could also increase bits-per-click in future, but for now Finger/Mouse increase click power (affects clicks) and Bits per click is separate.
-  // We'll let Fancy Mouse and Finger increase click *power* (clicks per click), but Bits per click is 1 * bitsMultiplier * (magnet double)
+  let base = 1 + (upgrades.bank || 0) * 0.2; // bank adds +0.2 bits per click per level
   let mult = getBitsPrestigeMultiplier();
   if (upgrades.magnet && upgrades.magnet > 0) mult *= 2;
   return base * mult;
 }
-
-/* click power from upgrades */
 function getClickPower() {
-  // base click = 1; upgrades add flat amounts; prestige multiplies
   let base = 1;
-  base += (upgrades.finger || 0) * 0.1; // Finger Strength: +0.1 click power
-  base += (upgrades.mouse || 0) * 0.25; // Fancy Mouse: +0.25 click power
+  base += (upgrades.finger || 0) * 0.1;
+  base += (upgrades.mouse || 0) * 0.25;
+  base += (upgrades.turbo || 0) * 0.5; // turbo glove adds 0.5 per level
   return base * getClickPrestigeMultiplier();
 }
-
-/* auto click per second from upgrades */
 function getAutoClicksPerSec() {
-  return (upgrades.energy || 0) * 1; // each level = +1 click/sec
+  return (upgrades.energy || 0) * 1 + (upgrades.factory || 0) * 5; // factory adds 5 clicks/sec per level
 }
-
-/* cost functions (bits) */
 function costFor(levelBase, lvl, scale=1.5) {
-  // levelBase = base cost for level 0->1; lvl = current level
-  // return next level cost
   return Math.ceil(levelBase * Math.pow(scale, lvl));
 }
-
-/* format helpers */
 function fmt(n) { return Math.floor(n).toLocaleString(); }
 function fmtFloat(n, digits=2) { return Number(n).toFixed(digits); }
+
+/* ------------------------------
+   SHOP (add new upgrades)
+   ------------------------------ */
+const shop = [
+  { id:'finger', name:'Finger Strength', desc:'+0.1 click power per level', baseCost:50 },
+  { id:'mouse',  name:'Fancy Mouse', desc:'+0.25 click power per level', baseCost:200 },
+  { id:'energy', name:'Energy Drink', desc:'+1 auto-click/sec per level', baseCost:250 },
+  { id:'turbo', name:'Turbo Glove', desc:'+0.5 click power per level', baseCost:1000 },
+  { id:'factory', name:'Auto Factory', desc:'+5 auto-click/sec per level', baseCost:2500 },
+  { id:'bank', name:'Bit Bank', desc:'+0.2 bits per click per level', baseCost:1500 },
+  { id:'magnet', name:'Bit Magnet (secret)', desc:'Double Bits gain (one-time, unlocks at 5,000 bits this run)', baseCost:5000, secret:true, oneTime:true }
+];
 
 /* ------------------------------
    TOASTS
@@ -426,7 +442,7 @@ function updateAchievementsPanel() {
   for (const k of keys) {
     const key = String(k);
     const info = achievements[key];
-    if (info.secret && !unlocked.includes(key)) continue; // hide secret that aren't unlocked
+    if (info.secret && !unlocked.includes(key)) continue;
     const div = document.createElement('div');
     div.className = 'achievement';
     if (unlocked.includes(key)) {
@@ -444,37 +460,43 @@ function updateAchievementsPanel() {
 }
 
 /* ------------------------------
-   UPGRADES SHOP
+   SHOP RENDER & BUY
    ------------------------------ */
-const shop = [
-  { id:'finger', name:'Finger Strength', desc:'+0.1 click power per level', baseCost:50 },
-  { id:'mouse',  name:'Fancy Mouse', desc:'+0.25 click power per level', baseCost:200 },
-  { id:'energy', name:'Energy Drink', desc:'+1 auto-click/sec per level', baseCost:250 },
-  // secret one-time upgrade (magnet)
-  { id:'magnet', name:'Bit Magnet (secret)', desc:'Double Bits gain (one-time)', baseCost:5000, secret:true, oneTime:true }
-];
-
-function renderShop() {
+function renderShopInner() {
   upgList.innerHTML = '';
   for (const item of shop) {
     const lvl = upgrades[item.id] || 0;
     const price = costFor(item.baseCost, lvl, 1.55);
     const div = document.createElement('div');
     div.className = 'upgrade';
-    div.innerHTML = `
-      <div class="meta">
-        <div class="name">${item.name}${item.oneTime && lvl>0 ? ' (owned)' : ''}</div>
-        <div style="font-size:0.9rem;color:#ccc">${item.desc}</div>
-        <div style="font-size:0.85rem;color:#aaa">Level: ${lvl}</div>
-      </div>
-      <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
-        <div style="font-weight:700">${price.toLocaleString()} bits</div>
-        <button data-id="${item.id}" ${ (item.oneTime && lvl>0) ? 'disabled' : '' } class="buy-btn small ${item.secret ? '' : ''}">Buy</button>
-      </div>
-    `;
+
+    // If magnet and not eligible, show locked message instead of buy
+    if (item.id === 'magnet' && (bits < 5000 && (upgrades.magnet || 0) === 0)) {
+      div.innerHTML = `
+        <div class="meta">
+          <div class="name">${item.name}</div>
+          <div style="font-size:0.9rem;color:#ccc">${item.desc}</div>
+          <div style="font-size:0.85rem;color:#aaa">Locked until you have 5,000 bits this run</div>
+        </div>
+        <div style="text-align:right;color:#999">Hidden</div>
+      `;
+    } else {
+      div.innerHTML = `
+        <div class="meta">
+          <div class="name">${item.name}${item.oneTime && lvl>0 ? ' (owned)' : ''}</div>
+          <div style="font-size:0.9rem;color:#ccc">${item.desc}</div>
+          <div style="font-size:0.85rem;color:#aaa">Level: ${lvl}</div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+          <div style="font-weight:700">${price.toLocaleString()} bits</div>
+          <button class="buy-btn small" data-id="${item.id}" ${ (item.oneTime && lvl>0) ? 'disabled' : '' }>${ (item.oneTime && lvl>0) ? 'Owned' : 'Buy' }</button>
+        </div>
+      `;
+    }
+
     upgList.appendChild(div);
   }
-  // attach buy listeners
+
   document.querySelectorAll('.buy-btn').forEach(btn=>{
     btn.onclick = ()=> {
       const id = btn.getAttribute('data-id');
@@ -483,24 +505,19 @@ function renderShop() {
   });
 }
 
-/* buy logic */
 function buyUpgrade(id) {
   const item = shop.find(s=>s.id===id);
   if (!item) return;
   const lvl = upgrades[id] || 0;
   const price = costFor(item.baseCost, lvl, 1.55);
   if (bits < price) { showToast('Not enough Bits', `You need ${price} bits.`); return; }
-  // spend bits
   bits -= price;
   bitsSpent += price;
-  totalBitsEarned = totalBitsEarned; // unchanged
-  // level up
   if (item.oneTime) upgrades[id] = 1;
   else upgrades[id] = lvl + 1;
-  // start auto-clicker if energy bought
-  if (id === 'energy') startAutoClicker();
+  if (id === 'energy' || id === 'factory') startAutoClicker();
   saveAll();
-  renderShop();
+  renderShopInner();
   refreshUI();
   showToast('Purchased', `${item.name} purchased!`);
 }
@@ -514,11 +531,9 @@ function startAutoClicker() {
   autoInterval = setInterval(()=>{
     const perSec = getAutoClicksPerSec();
     if (perSec <= 0) return;
-    // add perSec clicks (apply click power)
     const gained = perSec * getClickPower();
     count += gained;
     totalClicks += gained;
-    // bits from those clicks
     const bitsGained = perSec * getBaseBitsPerClick();
     bits += bitsGained;
     totalBitsEarned += bitsGained;
@@ -534,15 +549,37 @@ function stopAutoClicker() {
 }
 
 /* ------------------------------
+   CPS (Clicks Per Second) sampling
+   ------------------------------ */
+const cpsSamples = []; // store recent totalClicks samples
+const CPS_WINDOW = 5; // seconds
+setInterval(()=>{
+  cpsSamples.push(totalClicks);
+  if (cpsSamples.length > CPS_WINDOW) cpsSamples.shift();
+  if (cpsSamples.length >= 2) {
+    const oldest = cpsSamples[0];
+    const newest = cpsSamples[cpsSamples.length-1];
+    const seconds = cpsSamples.length - 1;
+    const cps = (newest - oldest) / seconds;
+    cpsEl.textContent = `CPS: ${fmtFloat(cps,2)}`;
+  } else {
+    cpsEl.textContent = `CPS: 0`;
+  }
+}, 1000);
+
+/* ------------------------------
    UI REFRESH
    ------------------------------ */
+function getPrestigeCost() {
+  return 10000 + prestigeCount * 10000; // increases by 10k each prestige
+}
+
 function refreshUI() {
   countEl.textContent = fmt(count);
   bitsCur.textContent = `Bits: ${fmt(bits)}`;
   bitsPerClickEl.textContent = `Bits/Click: ${fmtFloat(getBaseBitsPerClick(),2)}`;
   multCur.textContent = `x${getClickPrestigeMultiplier().toFixed(2)}`;
-  // prestige button appears only after threshold
-  const prestigeCost = 10000; // requirement to prestige (we decided earlier)
+  const prestigeCost = getPrestigeCost();
   if (Math.floor(count) >= prestigeCost) {
     prestigeBtn.style.display = 'inline-block';
     prestigeBtn.textContent = `Prestige (requires ${prestigeCost.toLocaleString()} clicks)`;
@@ -553,7 +590,7 @@ function refreshUI() {
   }
   updateAchievementsPanel();
   updateStatsPanel();
-  renderShop();
+  renderShopInner();
 }
 
 /* ------------------------------
@@ -587,14 +624,10 @@ function handleOfflineGain() {
     localStorage.setItem('lastPlayed', String(lastPlayed));
     return;
   }
-  // base: 1 click per 5 seconds offline
   const baseClicks = Math.floor(secsAway / 5);
-  // energy levels increase offline effectiveness: each energy level adds +1 to the rate (so 1 + energy)
   const multiplier = 1 + (upgrades.energy || 0);
   const offlineClicks = Math.floor(baseClicks * multiplier);
   if (offlineClicks <= 0) { lastPlayed = now; localStorage.setItem('lastPlayed', String(lastPlayed)); return; }
-
-  // apply them: convert offlineClicks into clicks and bits
   const clicksGained = offlineClicks * getClickPower();
   const bitsGained = offlineClicks * getBaseBitsPerClick();
   count += clicksGained;
@@ -602,7 +635,6 @@ function handleOfflineGain() {
   bits += bitsGained;
   totalBitsEarned += bitsGained;
   offlineClicksEarned += offlineClicks;
-
   lastPlayed = now;
   localStorage.setItem('lastPlayed', String(lastPlayed));
   saveAll();
@@ -617,12 +649,9 @@ clickBtn.addEventListener('click', () => {
   const clickGain = getClickPower();
   count += clickGain;
   totalClicks += clickGain;
-
-  // bits awarded per click (base bits per click * bitsPrestigeMultiplier, magnet doubles)
   const bitsGained = getBaseBitsPerClick();
   bits += bitsGained;
   totalBitsEarned += bitsGained;
-
   saveAll();
   checkAchievementsAfterIncrement();
   refreshUI();
@@ -632,23 +661,17 @@ clickBtn.addEventListener('click', () => {
    PRESTIGE
    ------------------------------ */
 prestigeBtn.addEventListener('click', ()=>{
-  const req = 10000;
+  const req = getPrestigeCost();
   if (Math.floor(count) < req) return;
-  if (!confirm('Prestiging resets current clicks, Bits and upgrades but gives a permanent 15% Bits gain multiplier. Proceed?')) return;
-  // increment prestige, reset many things
+  if (!confirm(`Prestiging resets current clicks, Bits and upgrades but gives a permanent +15% Bits gain per prestige. Proceed?`)) return;
   prestigeCount++;
-  // reset run variables
   count = 0;
-  // bits reset to 0 (spent and earned tracked)
   bits = 0;
-  // reset upgrades
-  upgrades = { finger:0, mouse:0, energy:0, magnet:0 };
-  // stop auto clicker
+  upgrades = { finger:0, mouse:0, energy:0, magnet:0, turbo:0, factory:0, bank:0 };
   stopAutoClicker();
-  // persist
   saveAll();
   saveUnlocked();
-  showToast('Prestige!', `You prestiged. Prestige level: ${prestigeCount}. Bits gain increased permanently.`, true);
+  showToast('Prestige!', `You prestiged. Prestige level: ${prestigeCount}. Bits gain increased.`, true);
   refreshUI();
 });
 
@@ -658,8 +681,8 @@ prestigeBtn.addEventListener('click', ()=>{
 resetBtn.addEventListener('click', ()=>{
   if (!confirm('Erase ALL progress (clicks, bits, prestige, upgrades)?')) return;
   localStorage.clear();
-  // reset in-memory
-  count=0; totalClicks=0; bits=0; totalBitsEarned=0; bitsSpent=0; unlocked=[]; prestigeCount=0; upgrades={finger:0,mouse:0,energy:0,magnet:0}; savedPlaytime=0; sessionStart=Date.now(); lastPlayed=Date.now(); offlineClicksEarned=0;
+  count=0; totalClicks=0; bits=0; totalBitsEarned=0; bitsSpent=0; unlocked=[]; prestigeCount=0;
+  upgrades={finger:0,mouse:0,energy:0,magnet:0,turbo:0,factory:0,bank:0}; savedPlaytime=0; sessionStart=Date.now(); lastPlayed=Date.now(); offlineClicksEarned=0;
   stopAutoClicker();
   showToast('Reset', 'All progress erased.');
   refreshUI();
@@ -671,7 +694,7 @@ resetBtn.addEventListener('click', ()=>{
 achBtn.addEventListener('click', ()=>{ achPanel.classList.toggle('show'); achPanel.setAttribute('aria-hidden', !achPanel.classList.contains('show')); updateAchievementsPanel(); });
 closeAch.addEventListener('click', ()=>{ achPanel.classList.remove('show'); achPanel.setAttribute('aria-hidden','true'); });
 
-upgBtn.addEventListener('click', ()=>{ upgPanel.classList.toggle('show'); upgPanel.setAttribute('aria-hidden', !upgPanel.classList.contains('show')); renderShop(); });
+upgBtn.addEventListener('click', ()=>{ upgPanel.classList.toggle('show'); upgPanel.setAttribute('aria-hidden', !upgPanel.classList.contains('show')); renderShopInner(); });
 closeUpg.addEventListener('click', ()=>{ upgPanel.classList.remove('show'); upgPanel.setAttribute('aria-hidden','true'); });
 
 statsBtn.addEventListener('click', ()=>{ statsPanel.classList.toggle('show'); statsPanel.setAttribute('aria-hidden', !statsPanel.classList.contains('show')); updateStatsPanel(); });
@@ -696,24 +719,18 @@ window.addEventListener('beforeunload', ()=>{
    ON LOAD: run setup
    ------------------------------ */
 window.addEventListener('load', ()=>{
-  // ensure firstSeen
   if (!firstSeen) { firstSeen = Date.now(); localStorage.setItem('firstSeen', String(firstSeen)); }
-  // handle offline gain since lastPlayed
   handleOfflineGain();
-
-  // start auto-clicker if energy level > 0
-  if ((upgrades.energy || 0) > 0) startAutoClicker();
-
-  // auto-unlock any achievements already passed
+  if ((upgrades.energy || 0) > 0 || (upgrades.factory || 0) > 0) startAutoClicker();
   autoUnlockExisting();
-
-  // initial render
   refreshUI();
 });
 
-/* small helper to count owned upgrades */
+/* ------------------------------
+   STATS HELPERS
+   ------------------------------ */
 function countOwnedUpgrades() {
-  return (upgrades.finger||0) + (upgrades.mouse||0) + (upgrades.energy||0) + (upgrades.magnet||0);
+  return (upgrades.finger||0) + (upgrades.mouse||0) + (upgrades.energy||0) + (upgrades.magnet||0) + (upgrades.turbo||0) + (upgrades.factory||0) + (upgrades.bank||0);
 }
 function updateStatsPanel() {
   statTotal.textContent = Math.floor(totalClicks).toLocaleString();
@@ -722,54 +739,13 @@ function updateStatsPanel() {
   statUpgrades.textContent = countOwnedUpgrades();
   const now = Date.now();
   const playMs = savedPlaytime + (now - sessionStart);
-  statPlaytime.textContent = (function(ms){ const s=Math.floor(ms/1000), h=Math.floor(s/3600), m=Math.floor((s%3600)/60), sec=s%60; if (h) return `${h}h ${m}m ${sec}s`; if (m) return `${m}m ${sec}s`; return `${sec}s`; })(playMs);
+  const s = Math.floor(playMs/1000), h = Math.floor(s/3600), m = Math.floor((s%3600)/60), sec = s%60;
+  statPlaytime.textContent = h ? `${h}h ${m}m ${sec}s` : (m ? `${m}m ${sec}s` : `${sec}s`);
 }
 
-/* render shop once on call */
-function renderShop() {
-  renderShopInner();
-}
-function renderShopInner() {
-  upgList.innerHTML = '';
-  for (const item of shop) {
-    const lvl = upgrades[item.id] || 0;
-    const price = costFor(item.baseCost, lvl, 1.55);
-    const wrapper = document.createElement('div');
-    wrapper.className = 'upgrade';
-    wrapper.innerHTML = `
-      <div class="meta">
-        <div class="name">${item.name}${item.oneTime && lvl>0 ? ' (owned)' : ''}</div>
-        <div style="font-size:0.9rem;color:#ccc">${item.desc}</div>
-        <div style="font-size:0.85rem;color:#aaa">Level: ${lvl}</div>
-      </div>
-      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
-        <div style="font-weight:700">${price.toLocaleString()} bits</div>
-        <button class="buy-btn small" data-id="${item.id}" ${ (item.oneTime && lvl>0) ? 'disabled' : '' }>${ (item.oneTime && lvl>0) ? 'Owned' : 'Buy' }</button>
-      </div>
-    `;
-    upgList.appendChild(wrapper);
-  }
-  // attach listeners
-  document.querySelectorAll('.buy-btn').forEach(b=>{
-    b.onclick = ()=> {
-      const id = b.getAttribute('data-id');
-      buyUpgrade(id);
-    };
-  });
-}
-
-/* we already defined shop at top; ensure shop variable is available here (redeclare if needed) */
-//if (typeof shop === 'undefined') {
-  // fallback (shouldn't happen)
-  //var shop = [
-    //{ id:'finger', name:'Finger Strength', desc:'+0.1 click power per level', baseCost:50 },
-    //{ id:'mouse', name:'Fancy Mouse', desc:'+0.25 click power per level', baseCost:200 },
-    //{ id:'energy', name:'Energy Drink', desc:'+1 auto-click/sec per level', baseCost:250 },
-    //{ id:'magnet', name:'Bit Magnet (secret)', desc:'Double Bits gain (one-time)', baseCost:5000, secret:true, oneTime:true }
-  //];
-//}
-
-/* final tiny init */
+/* ------------------------------
+   RENDER SHOP INIT & UI
+   ------------------------------ */
 renderShopInner();
 refreshUI();
 </script>
