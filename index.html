@@ -55,6 +55,7 @@
     .muted { background:#555; }
     .gold { background: #f0b429; color:#111; font-weight:700; }
     .red { background:#e53935; }
+    .purple { background: #7b1fa2; } /* purple style for prestige upgrades button */
     .small { padding:8px 16px; font-size:0.95rem; width:auto; }
     .muted.small { background:#444; color:#ddd; }
 
@@ -88,7 +89,7 @@
       min-width:220px;
       transform: translateX(150%);
       opacity:0;
-      transition: all .36s ease;
+      transition: all .1s ease;
       box-shadow: 0 10px 30px rgba(0,0,0,0.6);
       text-align:left;
     }
@@ -138,6 +139,12 @@
 
     footer { margin-top:8px; color:#777; font-size:12px; text-align:center; }
 
+    .qbits-upgrade { border-left: 5px solid #7b1fa2; } /* Purple accent for QBits upgrades */
+    .qbits-upgrade .name { color: #bb86fc; } /* Light purple text */
+    .qbits-indicator { background: rgba(123, 31, 162, 0.12); padding:6px 10px; border-radius:8px; } /* Qbits indicator background */
+
+    .purple-btn { background:#7b1fa2; color:#fff; font-weight:700; border-radius:10px; padding:12px 28px; width:80%; max-width:320px; }
+
     /* responsive adjustments */
     @media (max-width:420px) {
       button { width:88%; }
@@ -154,6 +161,7 @@
       <button id="clicker" style="font-size:1.35rem;padding:14px 24px;">Click Me</button>
       <button id="achBtn" class="blue">Achievements</button>
       <button id="upgBtn" class="gold">Upgrades</button>
+      <button id="prestigeUpgBtn" class="purple-btn" style="display:inline-block;">Prestige Upgrades</button>
       <button id="statsBtn" class="muted">Stats</button>
       <button id="prestigeBtn" class="gold" style="display:none;">Prestige</button>
       <button id="resetBtn" class="red">Reset</button>
@@ -162,6 +170,7 @@
         <div id="bitsCur">Bits: 0</div>
         <div id="bitsPerClick">Bits/Click: 1</div>
         <div id="multCur">x1.00</div>
+        <div id="qbitsCur" class="qbits-indicator">QBits: 0</div>
       </div>
     </div>
 
@@ -184,6 +193,14 @@
     <div class="upgrades" id="upgList"></div>
   </div>
 
+  <!-- Prestige Upgrades panel (dark gray, purple accents) -->
+  <div id="prestigePanel" class="panel" aria-hidden="true">
+    <button id="closePrestige" class="close">Close</button>
+    <h2 style="color:#bb86fc; text-align:center;">Prestige Upgrades (QBits)</h2>
+    <div id="prestigeInfo" style="text-align:center;color:#ddd;margin-bottom:8px;">Permanent upgrades purchased with QBits</div>
+    <div class="upgrades" id="prestigeList"></div>
+  </div>
+
   <!-- Stats panel -->
   <div id="statsPanel" class="panel" aria-hidden="true">
     <button id="closeStats" class="close">Close</button>
@@ -204,6 +221,8 @@
 /* ------------------------------
    STORAGE & INITIAL STATE
    ------------------------------ */
+const QBITS_PER_PRESTIGE = 2; // flat 2 QBits per prestige (per your request)
+
 let count = parseFloat(localStorage.getItem('count')) || 0;
 let totalClicks = parseFloat(localStorage.getItem('totalClicks')) || 0;
 let bits = parseFloat(localStorage.getItem('bits')) || 0;
@@ -216,6 +235,18 @@ let savedPlaytime = parseInt(localStorage.getItem('savedPlaytime')) || 0;
 let lastPlayed = parseInt(localStorage.getItem('lastPlayed')) || Date.now();
 let sessionStart = Date.now();
 let offlineClicksEarned = parseInt(localStorage.getItem('offlineClicksEarned')) || 0;
+
+// QBits & prestige upgrades persisted
+let qbits = (localStorage.getItem('qbits') !== null) ? parseFloat(localStorage.getItem('qbits')) : null;
+let prestigeUpgrades = JSON.parse(localStorage.getItem('prestigeUpgrades') || '{}');
+
+/* If qbits were never stored but player already had prestige levels, award them retroactively (only once) */
+if (qbits === null) {
+  qbits = prestigeCount > 0 ? prestigeCount * QBITS_PER_PRESTIGE : 0;
+  // store to avoid double-awarding on subsequent loads
+  localStorage.setItem('qbits', String(qbits));
+  localStorage.setItem('prestigeUpgrades', JSON.stringify(prestigeUpgrades));
+}
 
 /* upgrades structure */
 let upgrades = JSON.parse(localStorage.getItem('upgrades')) || {
@@ -234,6 +265,7 @@ const cpsEl = document.getElementById('cps');
 const clickBtn = document.getElementById('clicker');
 const achBtn = document.getElementById('achBtn');
 const upgBtn = document.getElementById('upgBtn');
+const prestigeUpgBtn = document.getElementById('prestigeUpgBtn');
 const statsBtn = document.getElementById('statsBtn');
 const prestigeBtn = document.getElementById('prestigeBtn');
 const resetBtn = document.getElementById('resetBtn');
@@ -241,6 +273,7 @@ const resetBtn = document.getElementById('resetBtn');
 const bitsCur = document.getElementById('bitsCur');
 const bitsPerClickEl = document.getElementById('bitsPerClick');
 const multCur = document.getElementById('multCur');
+const qbitsCur = document.getElementById('qbitsCur');
 
 const toastContainer = document.getElementById('toastContainer');
 
@@ -252,6 +285,10 @@ const upgPanel = document.getElementById('upgPanel');
 const upgList = document.getElementById('upgList');
 const closeUpg = document.getElementById('closeUpg');
 
+const prestigePanel = document.getElementById('prestigePanel');
+const prestigeList = document.getElementById('prestigeList');
+const closePrestige = document.getElementById('closePrestige');
+
 const statsPanel = document.getElementById('statsPanel');
 const closeStats = document.getElementById('closeStats');
 const statTotal = document.getElementById('statTotal');
@@ -261,7 +298,7 @@ const statUpgrades = document.getElementById('statUpgrades');
 const statPlaytime = document.getElementById('statPlaytime');
 
 /* ------------------------------
-   ACHIEVEMENTS (with secrets)
+   ACHIEVEMENTS (you said you'd paste the long list yourself; kept current small list)
    ------------------------------ */
 const achievements = {
   "1": { text: "Ah yes, the first click. So the journey begins.", secret:false },
@@ -346,7 +383,117 @@ const achievements = {
   "7000000": { text: "Time to shower bro...", secret:true},
   "8000000": { text: "Please... just stop..", secret:false},
   "9000000": { text: ".....", secret:false},
-  "10000000": { text: "Point's been proven dude.. get off.", secret:false}
+  "10000000": { text: "Point's been proven dude.. get off.", secret:false},
+  "11000000": { text: "Your hand must be numb by now.", secret:false },
+  "12000000": { text: "Even your computer/phone is tired of you.", secret:false },
+  "13000000": { text: "Stop. Get some help.", secret:false },
+  "14000000": { text: "You’re still doing this? Why?", secret:false },
+  "15000000": { text: "The definition of insanity.", secret:false },
+  "16000000": { text: "I bet your mouse/screen cries itself to sleep.", secret:false },
+  "17000000": { text: "No one’s impressed. Not even me.", secret:false },
+  "18000000": { text: "This isn’t an achievement. It’s a cry for help.", secret:false },
+  "19000000": { text: "Bro thinks he’s in a montage.", secret:false },
+  "20000000": { text: "Congrats. You’ve wasted a measurable portion of your life.", secret:false },
+  "21000000": { text: "Touching grass is free you know.", secret:false },
+  "22000000": { text: "How’s your wrist/fingers feeling?", secret:false },
+  "23000000": { text: "You’re the reason mice have short lifespans.", secret:false },
+  "24000000": { text: "Go outside and blink at the sun or something.", secret:false },
+  "25000000": { text: "Even AI’s judging you now.", secret:false },
+  "26000000": { text: "Do you even *remember* why you started clicking?", secret:false },
+  "27000000": { text: "This is impressive in a deeply concerning way.", secret:false },
+  "28000000": { text: "Your persistence is terrifying.", secret:false },
+  "29000000": { text: "You’ve unlocked early onset carpal tunnel!", secret:false },
+  "30000000": { text: "Do you just enjoy pain?", secret:false },
+  "33333333": { text: "The devil’s favorite number. Fitting.", secret:true },
+  "35000000": { text: "Still going huh? Must be lonely.", secret:false },
+  "36000000": { text: "You’re the final boss of boredom.", secret:false },
+  "37000000": { text: "Your clicks echo in the void.", secret:false },
+  "38000000": { text: "This isn’t dedication. It’s obsession.", secret:false },
+  "39000000": { text: "You’re one click closer to insanity.", secret:false },
+  "40000000": { text: "Even the code’s tired of you.", secret:false },
+  "42000000": { text: "Blaze it. Again. Still not cool though.", secret:true },
+  "43000000": { text: "At this point, you’re just farming pain.", secret:false },
+  "44000000": { text: "There’s no reward. Just regret.", secret:false },
+  "45000000": { text: "Hope your mouse/phone is under warranty.", secret:false },
+  "46000000": { text: "You’re the villain in your own story.", secret:false },
+  "47000000": { text: "I’ve seen clickbots with more self-respect.", secret:false },
+  "48000000": { text: "It’s not too late to close the page.", secret:false },
+  "49000000": { text: "Stop. You’re scaring me.", secret:true },
+  "50000000": { text: "Half of 100 million. You proud of yourself?", secret:false },
+  "55000000": { text: "Imagine explaining this to your future kids.", secret:false },
+  "60000000": { text: "You’ve unlocked… shame.", secret:false },
+  "66666666": { text: "Welcome back, demon clicker.", secret:true },
+  "70000000": { text: "You’ve out-clicked your own potential.", secret:false },
+  "75000000": { text: "I can’t even insult you anymore. It’s just sad.", secret:false },
+  "80000000": { text: "Do you even blink anymore?", secret:false },
+  "85000000": { text: "Your sanity is a distant memory.", secret:false },
+  "90000000": { text: "Even I’m starting to feel bad for you.", secret:false },
+  "95000000": { text: "You’re what scientists call a 'problem'.", secret:false },
+  "99999999": { text: "You’ve reached peak uselessness.", secret:true },
+  "100000000": { text: "A hundred million clicks. Congratulations. You’ve achieved nothing.", secret:false },
+  "111111111": { text: "The universe weeps for you.", secret:true },
+  "120000000": { text: "Are you trying to break reality?", secret:false },
+  "150000000": { text: "You’re officially a legend... of regret.", secret:false },
+  "200000000": { text: "I stopped caring ages ago.", secret:false },
+  "250000000": { text: "I hope your finger evolves into a stylus.", secret:false },
+  "300000000": { text: "You’re not winning. No one is.", secret:false },
+  "400000000": { text: "Even your reflection’s disappointed.", secret:false },
+  "500000000": { text: "Half a billion clicks. Therapy’s cheaper, y’know.", secret:false },
+  "600000000": { text: "You’ve become one with the click.", secret:true },
+  "750000000": { text: "This is no longer a game. It’s a lifestyle.", secret:false },
+  "900000000": { text: "You’re a legend no one wanted.", secret:false },
+  "999999999": { text: "You broke the matrix for nothing.", secret:true },
+  "1000000000": { text: "1 BILLION clicks. Seek professional help.", secret:false },
+  "1100000000": { text: "Your mouse/screen is crying in shame.", secret:false },
+  "1110000000": { text: "Even your chair judges you.", secret:false },
+  "1120000000": { text: "You’re basically an internet gremlin now.", secret:false },
+  "1130000000": { text: "Stop. Literally just stop.", secret:false },
+  "1140000000": { text: "You’ve officially peaked in pointlessness.", secret:false },
+  "1150000000": { text: "Do you even remember what sunlight looks like?", secret:false },
+  "1160000000": { text: "Your family wonders if you still exist.", secret:false },
+  "1170000000": { text: "You might be the first human click-caveman.", secret:false },
+  "1180000000": { text: "Imagine explaining this to a therapist.", secret:false },
+  "1190000000": { text: "The void judges you. And it’s disappointed.", secret:false },
+  "1200000000": { text: "Your productivity has gone extinct.", secret:false },
+  "1210000000": { text: "Congratulations. You’ve become a cautionary tale.", secret:false },
+  "1220000000": { text: "Even AI refuses to simulate your dedication.", secret:false },
+  "1230000000": { text: "This is no longer clicking. This is suffering.", secret:false },
+  "1240000000": { text: "The universe is considering intervention.", secret:false },
+  "1250000000": { text: "Every click increases your regret exponentially.", secret:false },
+  "1260000000": { text: "Do you even know who you are anymore?", secret:false },
+  "1270000000": { text: "Your neighbors filed a missing person report on your social life.", secret:false },
+  "1280000000": { text: "You’re single-handedly redefining boredom.", secret:false },
+  "1290000000": { text: "The mouse/screen store called—they want their warranty back.", secret:false },
+  "1300000000": { text: "You’re a legend. A disappointing legend that is.", secret:false },
+  "1310000000": { text: "Even the internet is judging your choices.", secret:false },
+  "1320000000": { text: "Your shadow is trying to escape.", secret:false },
+  "1330000000": { text: "Secret Unlocked: You’ve officially lost your mind.", secret:true },
+  "1340000000": { text: "People are writing eulogies for your free time.", secret:false },
+  "1350000000": { text: "Your hand has filed a formal complaint.", secret:false },
+  "1360000000": { text: "Your reflection is crying silently.", secret:false },
+  "1370000000": { text: "Even clickbots pity you now.", secret:false },
+  "1380000000": { text: "Stop. Your mouse/screen is begging for mercy.", secret:false },
+  "1390000000": { text: "You’re an internet ghost haunting your own life.", secret:false },
+  "1400000000": { text: "The phrase 'pointless obsession' was invented for you.", secret:false },
+  "1410000000": { text: "You’re officially a meme of despair.", secret:false },
+  "1420000000": { text: "Secret Unlocked: Your life choices are a cautionary tale.", secret:true },
+  "1430000000": { text: "Your neighbors are planning an intervention.", secret:false },
+  "1440000000": { text: "You’ve made the void look productive.", secret:false },
+  "1450000000": { text: "All your achievements are now regrets.", secret:false },
+  "1460000000": { text: "Even the internet is exhausted on your behalf.", secret:false },
+  "1470000000": { text: "Stop. You’re embarrassing yourself to AI.", secret:false },
+  "1480000000": { text: "Your mouse/screen has filed for divorce.", secret:false },
+  "1490000000": { text: "You’re a legend of misery and regret.", secret:false },
+  "1500000000": { text: "Secret Unlocked: The universe facepalms.", secret:true },
+  "1550000000": { text: "Imagine explaining this to future historians.", secret:false },
+  "1600000000": { text: "You’ve broken boredom. It’s now self-aware.", secret:false },
+  "1650000000": { text: "Your life is now a footnote in the annals of despair.", secret:false },
+  "1700000000": { text: "Even your chair refuses to support you.", secret:false },
+  "1750000000": { text: "Stop. Just… put the mouse/phone down.", secret:false },
+  "1800000000": { text: "The number of clicks is directly proportional to your sadness.", secret:false },
+  "1850000000": { text: "Secret Unlocked: You’re a cautionary legend of nothingness.", secret:true },
+  "1900000000": { text: "Congratulations. You are officially insane.", secret:false },
+  "2000000000": { text: "Two billion clicks. Therapist’s inbox full.", secret:false },
 };
 
 /* ------------------------------
@@ -359,21 +506,33 @@ function getClickPrestigeMultiplier() {
 function getBitsPrestigeMultiplier() {
   return Math.pow(1.15, prestigeCount);
 }
+
+/* Prestige upgrade effects helpers (read from prestigeUpgrades) */
+function prestigeLevel(id) { return prestigeUpgrades[id] || 0; }
+
+/* Base bits per click includes Bit Bank, Quantum Hands (flat), and global prestige multiplier */
 function getBaseBitsPerClick() {
-  let base = 1 + (upgrades.bank || 0) * 0.2; // bank adds +0.2 bits per click per level
+  let base = 1 + (upgrades.bank || 0) * 0.2;
+  base += (prestigeLevel('quantumHands') || 0) * 0.5; // quantumHands adds flat +0.5 per level
   let mult = getBitsPrestigeMultiplier();
   if (upgrades.magnet && upgrades.magnet > 0) mult *= 2;
+  // quantumProcessor adds multiplicative bits-per-click (10% per level)
+  mult *= 1 + (prestigeLevel('quantumProcessor') || 0) * 0.10;
   return base * mult;
 }
+
+/* Click power uses finger/mouse/turbo and prestige multiplier */
 function getClickPower() {
   let base = 1;
   base += (upgrades.finger || 0) * 0.1;
   base += (upgrades.mouse || 0) * 0.25;
-  base += (upgrades.turbo || 0) * 0.5; // turbo glove adds 0.5 per level
+  base += (upgrades.turbo || 0) * 0.5;
+  // magnet increases click multiplier slightly? keep as earlier design (was used in bits multiplier)
   return base * getClickPrestigeMultiplier();
 }
+
 function getAutoClicksPerSec() {
-  return (upgrades.energy || 0) * 1 + (upgrades.factory || 0) * 5; // factory adds 5 clicks/sec per level
+  return (upgrades.energy || 0) * 1 + (upgrades.factory || 0) * 5;
 }
 function costFor(levelBase, lvl, scale=1.5) {
   return Math.ceil(levelBase * Math.pow(scale, lvl));
@@ -382,7 +541,7 @@ function fmt(n) { return Math.floor(n).toLocaleString(); }
 function fmtFloat(n, digits=2) { return Number(n).toFixed(digits); }
 
 /* ------------------------------
-   SHOP (add new upgrades)
+   SHOP (regular bits upgrades)
    ------------------------------ */
 const shop = [
   { id:'finger', name:'Finger Strength', desc:'+0.1 click power per level', baseCost:50 },
@@ -392,6 +551,16 @@ const shop = [
   { id:'factory', name:'Auto Factory', desc:'+5 auto-click/sec per level', baseCost:2500 },
   { id:'bank', name:'Bit Bank', desc:'+0.2 bits per click per level', baseCost:1500 },
   { id:'magnet', name:'Bit Magnet (secret)', desc:'Double Bits gain (one-time, unlocks at 5,000 bits this run)', baseCost:5000, secret:true, oneTime:true }
+];
+
+/* ------------------------------
+   PRESTIGE SHOP (permanent QBits upgrades)
+   baseCost in QBits; costs scale with level.
+   ------------------------------ */
+const prestigeShop = [
+  { id: 'quantumProcessor', name: 'Quantum Processor', desc: '+10% bits per click per level', baseCost: 2, type:'mult', value:0.10 },
+  { id: 'timeDistorter',    name: 'Time Distorter',    desc: '+25% offline gain per level',     baseCost: 3, type:'offline', value:0.25 },
+  { id: 'quantumHands',     name: 'Quantum Hands',     desc: '+0.5 flat bits per click per level', baseCost: 2, type:'flat', value:0.5 }
 ];
 
 /* ------------------------------
@@ -405,7 +574,7 @@ function showToast(title, message, secret=false) {
   requestAnimationFrame(()=> t.classList.add('show'));
   setTimeout(()=> {
     t.classList.remove('show');
-    setTimeout(()=> t.remove(), 380);
+    setTimeout(()=> t.remove(), 150);
   }, 3200);
 }
 
@@ -425,6 +594,8 @@ function saveAll() {
   localStorage.setItem('lastPlayed', String(Date.now()));
   localStorage.setItem('offlineClicksEarned', String(offlineClicksEarned));
   localStorage.setItem('upgrades', JSON.stringify(upgrades));
+  localStorage.setItem('qbits', String(qbits));
+  localStorage.setItem('prestigeUpgrades', JSON.stringify(prestigeUpgrades));
 }
 
 /* ------------------------------
@@ -471,7 +642,7 @@ function updateAchievementsPanel() {
 }
 
 /* ------------------------------
-   SHOP RENDER & BUY
+   SHOP RENDER & BUY (regular bits shop)
    ------------------------------ */
 function renderShopInner() {
   upgList.innerHTML = '';
@@ -481,7 +652,7 @@ function renderShopInner() {
     const div = document.createElement('div');
     div.className = 'upgrade';
 
-    // If magnet and not eligible, show locked message instead of buy
+    // magnet locked message
     if (item.id === 'magnet' && (bits < 5000 && (upgrades.magnet || 0) === 0)) {
       div.innerHTML = `
         <div class="meta">
@@ -531,6 +702,66 @@ function buyUpgrade(id) {
   renderShopInner();
   refreshUI();
   showToast('Purchased', `${item.name} purchased!`);
+}
+
+/* ------------------------------
+   RENDER PRESTIGE (QBits) SHOP
+   ------------------------------ */
+function prestigeCostForLevel(item, lvl) {
+  // cost scaling: baseCost * 1.8^lvl (rounded up)
+  return Math.ceil(item.baseCost * Math.pow(1.8, lvl));
+}
+
+function renderPrestigeShop() {
+  prestigeList.innerHTML = '';
+  for (const item of prestigeShop) {
+    const lvl = prestigeUpgrades[item.id] || 0;
+    const nextCost = prestigeCostForLevel(item, lvl);
+    const div = document.createElement('div');
+    div.className = 'upgrade qbits-upgrade';
+    const currentBonusText = (() => {
+      if (item.type === 'mult') return `+${(lvl * item.value * 100).toFixed(0)}% bits/click`;
+      if (item.type === 'flat') return `+${(lvl * item.value).toFixed(2)} flat bits/click`;
+      if (item.type === 'offline') return `+${(lvl * item.value * 100).toFixed(0)}% offline gain`;
+      return '';
+    })();
+    div.innerHTML = `
+      <div class="meta">
+        <div class="name">${item.name} (Lv. ${lvl})</div>
+        <div style="font-size:0.9rem;color:#ccc">${item.desc}</div>
+        <div style="font-size:0.85rem;color:#aaa">${currentBonusText}</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+        <div style="font-weight:700">${nextCost} QBits</div>
+        <button class="buy-qbit-btn small" data-id="${item.id}" ${ qbits < nextCost ? 'disabled' : '' } style="background:#7b1fa2;color:#fff;border:none;border-radius:8px;padding:6px 10px;">Buy</button>
+      </div>
+    `;
+    prestigeList.appendChild(div);
+  }
+
+  document.querySelectorAll('.buy-qbit-btn').forEach(btn=>{
+    btn.onclick = ()=> {
+      const id = btn.getAttribute('data-id');
+      buyPrestigeUpgrade(id);
+    };
+  });
+}
+
+/* ------------------------------
+   BUY PRESTIGE UPGRADE
+   ------------------------------ */
+function buyPrestigeUpgrade(id) {
+  const item = prestigeShop.find(s => s.id === id);
+  if (!item) return;
+  const lvl = prestigeUpgrades[id] || 0;
+  const cost = prestigeCostForLevel(item, lvl);
+  if (qbits < cost) { showToast('Not enough QBits', `You need ${cost} QBits.`); return; }
+  qbits -= cost;
+  prestigeUpgrades[id] = lvl + 1;
+  saveAll();
+  renderPrestigeShop();
+  refreshUI();
+  showToast('Quantum Upgrade!', `${item.name} upgraded to level ${prestigeUpgrades[id]}.`, true);
 }
 
 /* ------------------------------
@@ -602,6 +833,8 @@ function refreshUI() {
   updateAchievementsPanel();
   updateStatsPanel();
   renderShopInner();
+  renderPrestigeShop();
+  qbitsCur.textContent = `QBits: ${fmt(qbits)}`;
 }
 
 /* ------------------------------
@@ -622,10 +855,9 @@ function checkAchievementsAfterIncrement() {
   }
   if (any) saveUnlocked();
 }
-function saveUnlocked() { localStorage.setItem('unlockedAchievements', JSON.stringify(unlocked)); }
 
 /* ------------------------------
-   OFFLINE GAIN
+   OFFLINE GAIN (incorporates timeDistorter)
    ------------------------------ */
 function handleOfflineGain() {
   const now = Date.now();
@@ -637,7 +869,8 @@ function handleOfflineGain() {
   }
   const baseClicks = Math.floor(secsAway / 5);
   const multiplier = 1 + (upgrades.energy || 0);
-  const offlineClicks = Math.floor(baseClicks * multiplier);
+  const timeDistorterMult = 1 + (prestigeLevel('timeDistorter') || 0) * 0.25;
+  const offlineClicks = Math.floor(baseClicks * multiplier * timeDistorterMult);
   if (offlineClicks <= 0) { lastPlayed = now; localStorage.setItem('lastPlayed', String(lastPlayed)); return; }
   const clicksGained = offlineClicks * getClickPower();
   const bitsGained = offlineClicks * getBaseBitsPerClick();
@@ -669,20 +902,23 @@ clickBtn.addEventListener('click', () => {
 });
 
 /* ------------------------------
-   PRESTIGE
+   PRESTIGE (awards flat QBits)
    ------------------------------ */
 prestigeBtn.addEventListener('click', ()=>{
   const req = getPrestigeCost();
   if (Math.floor(count) < req) return;
-  if (!confirm(`Prestiging resets current clicks, Bits and upgrades but gives a permanent +15% Bits gain per prestige. Proceed?`)) return;
+  if (!confirm(`Prestiging resets current clicks, Bits and run-only upgrades but grants permanent QBits (and increases prestige level). Proceed?`)) return;
   prestigeCount++;
+  // award flat QBits per prestige
+  qbits += QBITS_PER_PRESTIGE;
+  // reset run-specific stuff
   count = 0;
   bits = 0;
   upgrades = { finger:0, mouse:0, energy:0, magnet:0, turbo:0, factory:0, bank:0 };
   stopAutoClicker();
   saveAll();
   saveUnlocked();
-  showToast('Prestige!', `You prestiged. Prestige level: ${prestigeCount}. Bits gain increased.`, true);
+  showToast('Prestige!', `You prestiged. Prestige level: ${prestigeCount}. Awarded ${QBITS_PER_PRESTIGE} QBits.`, true);
   refreshUI();
 });
 
@@ -694,6 +930,8 @@ resetBtn.addEventListener('click', ()=>{
   localStorage.clear();
   count=0; totalClicks=0; bits=0; totalBitsEarned=0; bitsSpent=0; unlocked=[]; prestigeCount=0;
   upgrades={finger:0,mouse:0,energy:0,magnet:0,turbo:0,factory:0,bank:0}; savedPlaytime=0; sessionStart=Date.now(); lastPlayed=Date.now(); offlineClicksEarned=0;
+  qbits = 0;
+  prestigeUpgrades = {};
   stopAutoClicker();
   showToast('Reset', 'All progress erased.');
   refreshUI();
@@ -707,6 +945,9 @@ closeAch.addEventListener('click', ()=>{ achPanel.classList.remove('show'); achP
 
 upgBtn.addEventListener('click', ()=>{ upgPanel.classList.toggle('show'); upgPanel.setAttribute('aria-hidden', !upgPanel.classList.contains('show')); renderShopInner(); });
 closeUpg.addEventListener('click', ()=>{ upgPanel.classList.remove('show'); upgPanel.setAttribute('aria-hidden','true'); });
+
+prestigeUpgBtn.addEventListener('click', ()=>{ prestigePanel.classList.toggle('show'); prestigePanel.setAttribute('aria-hidden', !prestigePanel.classList.contains('show')); renderPrestigeShop(); });
+closePrestige.addEventListener('click', ()=>{ prestigePanel.classList.remove('show'); prestigePanel.setAttribute('aria-hidden','true'); });
 
 statsBtn.addEventListener('click', ()=>{ statsPanel.classList.toggle('show'); statsPanel.setAttribute('aria-hidden', !statsPanel.classList.contains('show')); updateStatsPanel(); });
 closeStats.addEventListener('click', ()=>{ statsPanel.classList.remove('show'); statsPanel.setAttribute('aria-hidden','true'); });
@@ -730,13 +971,21 @@ window.addEventListener('beforeunload', ()=>{
    ON LOAD: run setup
    ------------------------------ */
 window.addEventListener('load', ()=>{
-  if (!firstSeen) { firstSeen = Date.now(); localStorage.setItem('firstSeen', String(firstSeen)); }
+  if (!firstSeen) { 
+    firstSeen = Date.now(); 
+    localStorage.setItem('firstSeen', String(firstSeen)); 
+  }
   handleOfflineGain();
+
+  // ✅ Fix legacy saves (add qBits for old prestiges)
+  if (prestigeCount > 0 && (typeof qbits === "undefined" || qbits === null)) {
+    qbits = prestigeCount * 2; // give 2 qBits per prestige level
+  }
+
   if ((upgrades.energy || 0) > 0 || (upgrades.factory || 0) > 0) startAutoClicker();
   autoUnlockExisting();
   refreshUI();
 });
-
 /* ------------------------------
    STATS HELPERS
    ------------------------------ */
@@ -755,9 +1004,10 @@ function updateStatsPanel() {
 }
 
 /* ------------------------------
-   RENDER SHOP INIT & UI
+   INIT
    ------------------------------ */
 renderShopInner();
+renderPrestigeShop();
 refreshUI();
 </script>
 </body>
