@@ -145,7 +145,10 @@
 
     .purple-btn { background:#7b1fa2; color:#fff; font-weight:700; border-radius:10px; padding:12px 28px; width:80%; max-width:320px; }
 
-    .currents{
+    .buy-mode-btn { background:#444; color:#ddd; border-radius:8px; padding:6px 10px; border:none; cursor:pointer; }
+    .buy-mode-btn.active { background:#7b1fa2; color:#fff; }
+
+    .currents {
       display: flex;
       flex-direction: column;
       gap: 6px;
@@ -153,7 +156,7 @@
       align-items: center;
       justify-content: flex-start;
     }
-    
+
     /* responsive adjustments */
     @media (max-width:420px) {
       button { width:88%; }
@@ -199,6 +202,7 @@
   <div id="upgPanel" class="panel" aria-hidden="true">
     <button id="closeUpg" class="close">Close</button>
     <h2>Upgrades (Bits shop)</h2>
+    <!-- buy mode controls will be injected here -->
     <div class="upgrades" id="upgList"></div>
   </div>
 
@@ -230,8 +234,7 @@
 /* ------------------------------
    STORAGE & INITIAL STATE
    ------------------------------ */
-const QBITS_PER_PRESTIGE = 2; // flat 2 QBits per prestige (per your request)
-
+const QBITS_PER_PRESTIGE = 2; // flat 2 QBits per prestige (base)
 let count = parseFloat(localStorage.getItem('count')) || 0;
 let totalClicks = parseFloat(localStorage.getItem('totalClicks')) || 0;
 let bits = parseFloat(localStorage.getItem('bits')) || 0;
@@ -249,15 +252,14 @@ let offlineClicksEarned = parseInt(localStorage.getItem('offlineClicksEarned')) 
 let qbits = (localStorage.getItem('qbits') !== null) ? parseFloat(localStorage.getItem('qbits')) : null;
 let prestigeUpgrades = JSON.parse(localStorage.getItem('prestigeUpgrades') || '{}');
 
-/* If qbits were never stored but player already had prestige levels, award them retroactively (only once) */
-if (qbits === null) {
+// Retro-award QBits to old saves that didn't have qbits stored
+if (localStorage.getItem('qbits') === null) {
   qbits = prestigeCount > 0 ? prestigeCount * QBITS_PER_PRESTIGE : 0;
-  // store to avoid double-awarding on subsequent loads
   localStorage.setItem('qbits', String(qbits));
   localStorage.setItem('prestigeUpgrades', JSON.stringify(prestigeUpgrades));
 }
 
-/* upgrades structure */
+/* upgrades structure (run-only) */
 let upgrades = JSON.parse(localStorage.getItem('upgrades')) || {
   finger: 0,
   mouse: 0,
@@ -268,7 +270,7 @@ let upgrades = JSON.parse(localStorage.getItem('upgrades')) || {
   bank: 0
 };
 
-/* UI */
+/* UI refs */
 const countEl = document.getElementById('count');
 const cpsEl = document.getElementById('cps');
 const clickBtn = document.getElementById('clicker');
@@ -307,7 +309,7 @@ const statUpgrades = document.getElementById('statUpgrades');
 const statPlaytime = document.getElementById('statPlaytime');
 
 /* ------------------------------
-   ACHIEVEMENTS (you said you'd paste the long list yourself; kept current small list)
+   ACHIEVEMENTS (kept as-is)
    ------------------------------ */
 const achievements = {
   "1": { text: "Ah yes, the first click. So the journey begins.", secret:false },
@@ -515,38 +517,42 @@ function getClickPrestigeMultiplier() {
 function getBitsPrestigeMultiplier() {
   return Math.pow(1.15, prestigeCount);
 }
-
-/* Prestige upgrade effects helpers (read from prestigeUpgrades) */
 function prestigeLevel(id) { return prestigeUpgrades[id] || 0; }
 
-/* Base bits per click includes Bit Bank, Quantum Hands (flat), and global prestige multiplier */
 function getBaseBitsPerClick() {
   let base = 1 + (upgrades.bank || 0) * 0.2;
-  base += (prestigeLevel('quantumHands') || 0) * 0.5; // quantumHands adds flat +0.5 per level
+  base += (prestigeLevel('quantumHands') || 0) * 0.5; // flat per-level
   let mult = getBitsPrestigeMultiplier();
   if (upgrades.magnet && upgrades.magnet > 0) mult *= 2;
-  // quantumProcessor adds multiplicative bits-per-click (10% per level)
-  mult *= 1 + (prestigeLevel('quantumProcessor') || 0) * 0.10;
+  mult *= 1 + (prestigeLevel('quantumProcessor') || 0) * 0.10; // multiplicative
   return base * mult;
 }
 
-/* Click power uses finger/mouse/turbo and prestige multiplier */
 function getClickPower() {
   let base = 1;
   base += (upgrades.finger || 0) * 0.1;
   base += (upgrades.mouse || 0) * 0.25;
   base += (upgrades.turbo || 0) * 0.5;
-  // magnet increases click multiplier slightly? keep as earlier design (was used in bits multiplier)
   return base * getClickPrestigeMultiplier();
 }
 
 function getAutoClicksPerSec() {
   return (upgrades.energy || 0) * 1 + (upgrades.factory || 0) * 5;
 }
+
 function costFor(levelBase, lvl, scale=1.5) {
   return Math.ceil(levelBase * Math.pow(scale, lvl));
 }
-function fmt(n) { return Math.floor(n).toLocaleString(); }
+
+/* formatting with shorthand for huge numbers (kept simple) */
+function fmt(n) {
+  if (n === null || n === undefined) return '0';
+  if (n >= 1e12) return (n/1e12).toFixed(2) + 'T';
+  if (n >= 1e9) return (n/1e9).toFixed(2) + 'B';
+  if (n >= 1e6) return (n/1e6).toFixed(2) + 'M';
+  if (n >= 1e3) return Math.floor(n).toLocaleString();
+  return Math.floor(n).toString();
+}
 function fmtFloat(n, digits=2) { return Number(n).toFixed(digits); }
 
 /* ------------------------------
@@ -564,13 +570,49 @@ const shop = [
 
 /* ------------------------------
    PRESTIGE SHOP (permanent QBits upgrades)
-   baseCost in QBits; costs scale with level.
    ------------------------------ */
 const prestigeShop = [
   { id: 'quantumProcessor', name: 'Quantum Processor', desc: '+10% bits per click per level', baseCost: 2, type:'mult', value:0.10 },
   { id: 'timeDistorter',    name: 'Time Distorter',    desc: '+25% offline gain per level',     baseCost: 3, type:'offline', value:0.25 },
-  { id: 'quantumHands',     name: 'Quantum Hands',     desc: '+0.5 flat bits per click per level', baseCost: 2, type:'flat', value:0.5 }
+  { id: 'quantumHands',     name: 'Quantum Hands',     desc: '+0.5 flat bits per click per level', baseCost: 2, type:'flat', value:0.5 },
+  // NEW: QBit Booster — starts 100 QBits, +100 after each purchase, doubles how many QBits are given each prestige per level
+  { id: 'qbitBooster', name: 'QBit Booster', desc: 'Doubles QBits awarded per prestige (each level doubles). Cost increases by +100 each buy.', baseCost: 100, type:'special', costInc:100 }
 ];
+
+/* ------------------------------
+   BUY MODE (x1 / x10 / MAX)
+   ------------------------------ */
+let buyMode = 1; // 1, 10, 'max'
+function setBuyMode(mode) {
+  buyMode = mode;
+  renderShopInner(); // re-render upgrades panel so buttons update
+}
+
+/* calculate cost for buying 'amount' levels (geometric scale). */
+function calculateTotalCostForLevels(baseCost, startLevel, amount, scale=1.55) {
+  let total = 0;
+  for (let i=0;i<amount;i++){
+    total += Math.ceil(baseCost * Math.pow(scale, startLevel + i));
+  }
+  return total;
+}
+
+/* how many levels can be purchased with current bits (for MAX) */
+function calcMaxBuyAmount(baseCost, startLevel, availableBits, scale=1.55) {
+  let lvl = startLevel;
+  let bought = 0;
+  while (true) {
+    const c = Math.ceil(baseCost * Math.pow(scale, lvl));
+    if (availableBits >= c) {
+      availableBits -= c;
+      lvl++;
+      bought++;
+      // safety break
+      if (bought > 1000000) break;
+    } else break;
+  }
+  return bought;
+}
 
 /* ------------------------------
    TOASTS
@@ -583,7 +625,7 @@ function showToast(title, message, secret=false) {
   requestAnimationFrame(()=> t.classList.add('show'));
   setTimeout(()=> {
     t.classList.remove('show');
-    setTimeout(()=> t.remove(), 150);
+    setTimeout(()=> t.remove(), 180);
   }, 3200);
 }
 
@@ -608,7 +650,7 @@ function saveAll() {
 }
 
 /* ------------------------------
-   ACHIEVEMENTS MANAGEMENT
+   ACHIEVEMENTS
    ------------------------------ */
 function autoUnlockExisting() {
   const cur = Math.floor(count);
@@ -622,7 +664,7 @@ function autoUnlockExisting() {
       changed = true;
     }
   });
-  if (changed) saveUnlocked();
+  if (changed) saveAll();
 }
 function saveUnlocked() { localStorage.setItem('unlockedAchievements', JSON.stringify(unlocked)); }
 
@@ -654,14 +696,28 @@ function updateAchievementsPanel() {
    SHOP RENDER & BUY (regular bits shop)
    ------------------------------ */
 function renderShopInner() {
+  // add buy-mode controls above the list
   upgList.innerHTML = '';
+
+  // buy mode controls
+  const buyDiv = document.createElement('div');
+  buyDiv.style = "display:flex;gap:8px;justify-content:center;margin-bottom:10px;";
+  buyDiv.innerHTML = `
+    <button class="buy-mode-btn ${buyMode==1?'active':''}" onclick="setBuyMode(1)">x1</button>
+    <button class="buy-mode-btn ${buyMode==10?'active':''}" onclick="setBuyMode(10)">x10</button>
+    <button class="buy-mode-btn ${buyMode==='max'?'active':''}" onclick="setBuyMode('max')">MAX</button>
+  `;
+  upgList.appendChild(buyDiv);
+
   for (const item of shop) {
     const lvl = upgrades[item.id] || 0;
-    const price = costFor(item.baseCost, lvl, 1.55);
+    let buyAmount = buyMode === 'max' ? calcMaxBuyAmount(item.baseCost, lvl, bits) : buyMode;
+    if (buyAmount <= 0) buyAmount = (buyMode === 'max' ? 0 : buyMode);
+    const cost = (buyMode === 'max') ? calculateTotalCostForLevels(item.baseCost, lvl, buyAmount) : calculateTotalCostForLevels(item.baseCost, lvl, buyAmount);
     const div = document.createElement('div');
     div.className = 'upgrade';
 
-    // magnet locked message
+    // If magnet and not eligible, show locked message instead of buy
     if (item.id === 'magnet' && (bits < 5000 && (upgrades.magnet || 0) === 0)) {
       div.innerHTML = `
         <div class="meta">
@@ -679,12 +735,11 @@ function renderShopInner() {
           <div style="font-size:0.85rem;color:#aaa">Level: ${lvl}</div>
         </div>
         <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
-          <div style="font-weight:700">${price.toLocaleString()} bits</div>
-          <button class="buy-btn small" data-id="${item.id}" ${ (item.oneTime && lvl>0) ? 'disabled' : '' }>${ (item.oneTime && lvl>0) ? 'Owned' : 'Buy' }</button>
+          <div style="font-weight:700">${ (buyAmount>0) ? fmt(cost) + ' bits' : '—' }</div>
+          <button class="buy-btn small" data-id="${item.id}" ${ (item.oneTime && lvl>0) ? 'disabled' : '' } ${ (buyAmount<=0) ? 'disabled' : '' }>${ (item.oneTime && lvl>0) ? 'Owned' : (buyMode==='max' ? 'Buy MAX' : 'Buy') }</button>
         </div>
       `;
     }
-
     upgList.appendChild(div);
   }
 
@@ -700,12 +755,21 @@ function buyUpgrade(id) {
   const item = shop.find(s=>s.id===id);
   if (!item) return;
   const lvl = upgrades[id] || 0;
-  const price = costFor(item.baseCost, lvl, 1.55);
-  if (bits < price) { showToast('Not enough Bits', `You need ${price} bits.`); return; }
-  bits -= price;
-  bitsSpent += price;
-  if (item.oneTime) upgrades[id] = 1;
-  else upgrades[id] = lvl + 1;
+
+  if (buyMode === 'max') {
+    const amount = calcMaxBuyAmount(item.baseCost, lvl, bits);
+    if (amount <= 0) { showToast('Cannot buy', 'Not enough Bits for MAX.'); return; }
+    const cost = calculateTotalCostForLevels(item.baseCost, lvl, amount);
+    bits -= cost;
+    upgrades[id] = lvl + amount;
+  } else {
+    const amount = buyMode;
+    const cost = calculateTotalCostForLevels(item.baseCost, lvl, amount);
+    if (bits < cost) { showToast('Not enough Bits', `You need ${fmt(cost)} bits.`); return; }
+    bits -= cost;
+    upgrades[id] = lvl + amount;
+  }
+
   if (id === 'energy' || id === 'factory') startAutoClicker();
   saveAll();
   renderShopInner();
@@ -714,10 +778,12 @@ function buyUpgrade(id) {
 }
 
 /* ------------------------------
-   RENDER PRESTIGE (QBits) SHOP
+   PRESTIGE SHOP (QBits) render & buy
    ------------------------------ */
 function prestigeCostForLevel(item, lvl) {
-  // cost scaling: baseCost * 1.8^lvl (rounded up)
+  // if item has costInc (flat increment), use baseCost + costInc*lvl
+  if (item.costInc) return item.baseCost + item.costInc * lvl;
+  // otherwise geometric
   return Math.ceil(item.baseCost * Math.pow(1.8, lvl));
 }
 
@@ -732,6 +798,7 @@ function renderPrestigeShop() {
       if (item.type === 'mult') return `+${(lvl * item.value * 100).toFixed(0)}% bits/click`;
       if (item.type === 'flat') return `+${(lvl * item.value).toFixed(2)} flat bits/click`;
       if (item.type === 'offline') return `+${(lvl * item.value * 100).toFixed(0)}% offline gain`;
+      if (item.type === 'special') return `${lvl} purchased`;
       return '';
     })();
     div.innerHTML = `
@@ -756,9 +823,6 @@ function renderPrestigeShop() {
   });
 }
 
-/* ------------------------------
-   BUY PRESTIGE UPGRADE
-   ------------------------------ */
 function buyPrestigeUpgrade(id) {
   const item = prestigeShop.find(s => s.id === id);
   if (!item) return;
@@ -771,6 +835,16 @@ function buyPrestigeUpgrade(id) {
   renderPrestigeShop();
   refreshUI();
   showToast('Quantum Upgrade!', `${item.name} upgraded to level ${prestigeUpgrades[id]}.`, true);
+}
+
+/* ------------------------------
+   Calculate QBits awarded on prestige (incorporates qbitBooster)
+   ------------------------------ */
+function calculatePrestigeQBitsAward() {
+  const base = QBITS_PER_PRESTIGE;
+  const boosterLevel = prestigeUpgrades.qbitBooster || 0;
+  const multiplier = Math.pow(2, boosterLevel); // doubles per level
+  return base * multiplier;
 }
 
 /* ------------------------------
@@ -800,10 +874,10 @@ function stopAutoClicker() {
 }
 
 /* ------------------------------
-   CPS (Clicks Per Second) sampling
+   CPS sampling
    ------------------------------ */
-const cpsSamples = []; // store recent totalClicks samples
-const CPS_WINDOW = 5; // seconds
+const cpsSamples = [];
+const CPS_WINDOW = 5;
 setInterval(()=>{
   cpsSamples.push(totalClicks);
   if (cpsSamples.length > CPS_WINDOW) cpsSamples.shift();
@@ -822,7 +896,8 @@ setInterval(()=>{
    UI REFRESH
    ------------------------------ */
 function getPrestigeCost() {
-  return 10000 + prestigeCount * 10000; // increases by 10k each prestige
+  // scale to round numbers: start 1,000 then add 1k per prestige (you asked round numbers earlier)
+  return 1000 + prestigeCount * 1000;
 }
 
 function refreshUI() {
@@ -841,13 +916,14 @@ function refreshUI() {
   }
   updateAchievementsPanel();
   updateStatsPanel();
-  renderShopInner();
-  renderPrestigeShop();
+  // render shop UI if panel open
+  if (upgPanel.classList.contains('show')) renderShopInner();
+  if (prestigePanel.classList.contains('show')) renderPrestigeShop();
   qbitsCur.textContent = `QBits: ${fmt(qbits)}`;
 }
 
 /* ------------------------------
-   CHECK ACHIEVEMENTS after increment
+   ACHIEVEMENTS after increment
    ------------------------------ */
 function checkAchievementsAfterIncrement() {
   const cur = Math.floor(count);
@@ -862,11 +938,11 @@ function checkAchievementsAfterIncrement() {
       showToast('Achievement Earned!', achievements[key].text, secret);
     }
   }
-  if (any) saveUnlocked();
+  if (any) saveAll();
 }
 
 /* ------------------------------
-   OFFLINE GAIN (incorporates timeDistorter)
+   OFFLINE GAIN
    ------------------------------ */
 function handleOfflineGain() {
   const now = Date.now();
@@ -911,15 +987,16 @@ clickBtn.addEventListener('click', () => {
 });
 
 /* ------------------------------
-   PRESTIGE (awards flat QBits)
+   PRESTIGE (awards flat QBits with booster multiplier)
    ------------------------------ */
 prestigeBtn.addEventListener('click', ()=>{
   const req = getPrestigeCost();
   if (Math.floor(count) < req) return;
   if (!confirm(`Prestiging resets current clicks, Bits and run-only upgrades but grants permanent QBits (and increases prestige level). Proceed?`)) return;
   prestigeCount++;
-  // award flat QBits per prestige
-  qbits += QBITS_PER_PRESTIGE;
+  // award QBits (base * 2^boosterLevel)
+  const award = calculatePrestigeQBitsAward();
+  qbits += award;
   // reset run-specific stuff
   count = 0;
   bits = 0;
@@ -927,7 +1004,7 @@ prestigeBtn.addEventListener('click', ()=>{
   stopAutoClicker();
   saveAll();
   saveUnlocked();
-  showToast('Prestige!', `You prestiged. Prestige level: ${prestigeCount}. Awarded ${QBITS_PER_PRESTIGE} QBits.`, true);
+  showToast('Prestige!', `You prestiged. Prestige level: ${prestigeCount}. Awarded ${award} QBits.`, true);
   refreshUI();
 });
 
@@ -961,9 +1038,7 @@ closePrestige.addEventListener('click', ()=>{ prestigePanel.classList.remove('sh
 statsBtn.addEventListener('click', ()=>{ statsPanel.classList.toggle('show'); statsPanel.setAttribute('aria-hidden', !statsPanel.classList.contains('show')); updateStatsPanel(); });
 closeStats.addEventListener('click', ()=>{ statsPanel.classList.remove('show'); statsPanel.setAttribute('aria-hidden','true'); });
 
-/* ------------------------------
-   SHOP and save on unload
-   ------------------------------ */
+/* Nice touch: touch devices treat touchstart on buttons as clicks */
 document.addEventListener('touchstart', function(e){ if (e.target.tagName === 'BUTTON') { e.preventDefault(); e.target.click(); } }, { passive:false });
 
 window.addEventListener('beforeunload', ()=>{
@@ -980,21 +1055,16 @@ window.addEventListener('beforeunload', ()=>{
    ON LOAD: run setup
    ------------------------------ */
 window.addEventListener('load', ()=>{
-  if (!firstSeen) { 
-    firstSeen = Date.now(); 
-    localStorage.setItem('firstSeen', String(firstSeen)); 
+  if (!firstSeen) {
+    firstSeen = Date.now();
+    localStorage.setItem('firstSeen', String(firstSeen));
   }
   handleOfflineGain();
-
-  // ✅ Fix legacy saves (add qBits for old prestiges)
-  if (prestigeCount > 0 && (typeof qbits === "undefined" || qbits === null)) {
-    qbits = prestigeCount * 2; // give 2 qBits per prestige level
-  }
-
   if ((upgrades.energy || 0) > 0 || (upgrades.factory || 0) > 0) startAutoClicker();
   autoUnlockExisting();
   refreshUI();
 });
+
 /* ------------------------------
    STATS HELPERS
    ------------------------------ */
@@ -1021,4 +1091,3 @@ refreshUI();
 </script>
 </body>
 </html>
-
